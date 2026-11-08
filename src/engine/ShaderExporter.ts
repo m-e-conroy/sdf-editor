@@ -45,6 +45,12 @@ export class ShaderExporter {
     lines.push('float sdOctahedron(vec3 p, float s) { p = abs(p); float m = p.x + p.y + p.z - s; vec3 q; if (3.0 * p.x < m) q = p.xyz; else if (3.0 * p.y < m) q = p.yzx; else if (3.0 * p.z < m) q = p.zxy; else return m * 0.57735027; float k = clamp(0.5 * (q.z - q.y + s), 0.0, s); return length(vec3(q.x, q.y - s + k, q.z - k)); }');
     lines.push('float sdTetrahedron(vec3 p, float r) { const vec3 n1 = vec3(0.57735, 0.57735, 0.57735); const vec3 n2 = vec3(-0.57735, -0.57735, 0.57735); const vec3 n3 = vec3(-0.57735, 0.57735, -0.57735); const vec3 n4 = vec3(0.57735, -0.57735, -0.57735); float d1 = dot(p, n1); float d2 = dot(p, n2); float d3 = dot(p, n3); float d4 = dot(p, n4); return max(max(d1, d2), max(d3, d4)) - r; }');
     lines.push('float sdMandelbulb(vec3 p) { vec3 w = p; float m = dot(w, w); float dz = 1.0; for (int i = 0; i < 4; i++) { dz = 8.0 * pow(m, 3.5) * dz + 1.0; float r = length(w); float b = 8.0 * acos(clamp(w.y / r, -1.0, 1.0)); float a = 8.0 * atan(w.x, w.z); w = p + pow(r, 8.0) * vec3(sin(b) * sin(a), cos(b), sin(b) * cos(a)); m = dot(w, w); if (m > 256.0) break; } return 0.25 * log(m) * sqrt(m) / dz; }');
+    lines.push('float sdCappedTorus(vec3 p, vec2 sc, float ra, float rb) { p.x = abs(p.x); float k = (sc.y * p.x > sc.x * p.y) ? dot(p.xy, sc) : length(p.xy); return sqrt(max(dot(p, p) + ra * ra - 2.0 * ra * k, 0.0)) - rb; }');
+    lines.push('float sdLink(vec3 p, float le, float r1, float r2) { vec3 q = vec3(p.x, max(abs(p.y) - le, 0.0), p.z); return length(vec2(length(q.xy) - r1, q.z)) - r2; }');
+    lines.push('float sdChamferCylinder(vec3 p, float h, float r, float c) { if (c <= 0.0001) { vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h); return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)); } c = min(c, min(r, h)); vec2 q = vec2(length(p.xz), abs(p.y)); vec2 u = q - vec2(r, h); float dChamfer = (u.x + u.y + c) * 0.70710678; vec2 p0 = vec2(r - c, h); vec2 p1 = vec2(r, h - c); vec2 e = p1 - p0; vec2 w = q - p0; vec2 b = w - e * clamp(dot(w, e) / max(dot(e, e), 1e-6), 0.0, 1.0); float dOut = (q.x > r && q.y < h - c) ? (q.x - r) : ((q.y > h && q.x < r - c) ? (q.y - h) : ((q.x <= r && q.y <= h && dChamfer <= 0.0) ? 0.0 : length(b))); float dIn = max(max(u.x, u.y), dChamfer); return (dIn > 0.0) ? dOut : dIn; }');
+    lines.push('float sdEgg(vec3 p, float ra, float rb, float h) { const float k = 1.7320508; ra = max(ra, 0.001); rb = max(rb, 0.001); float r = ra - rb; float sc = (abs(r) > 0.001) ? (h / (k * abs(r))) : 1.0; vec2 q = vec2(length(p.xz), p.y / max(sc, 0.001)); q.x = abs(q.x); float d = (r > 0.001) ? (((q.y < 0.0) ? length(q) - r : (k * (q.x + r) < q.y) ? length(vec2(q.x, q.y - k * r)) : length(vec2(q.x + r, q.y)) - 2.0 * r) - rb) : (length(vec2(q.x, q.y - clamp(q.y, 0.0, h))) - ra); return d * min(1.0, sc); }');
+    lines.push('float sdHeart(vec3 p, float s, float h) { s = max(s, 0.001); h = max(h, 0.001); vec2 q = vec2(p.x, p.y + 0.5 * s) / s; q.x = abs(q.x); float d2d = (q.y + q.x > 1.0) ? (sqrt(dot(q - vec2(0.25, 0.75), q - vec2(0.25, 0.75))) - 0.35355339) : (sqrt(min(dot(q - vec2(0.0, 1.0), q - vec2(0.0, 1.0)), dot(q - 0.5 * max(q.x + q.y, 0.0), q - 0.5 * max(q.x + q.y, 0.0)))) * sign(q.x - q.y)); vec2 w = vec2(d2d * s, abs(p.z) - h); return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)); }');
+    lines.push('float sdStar5(vec3 p, float r, float rf, float h) { const vec2 k1 = vec2(0.80901699, -0.58778525); const vec2 k2 = vec2(-k1.x, k1.y); float factor = clamp(rf > 0.0 && rf < r ? rf / r : (rf > 0.0 && rf < 1.0 ? rf : 0.5), 0.1, 0.9); vec2 p2 = p.xy; p2.x = abs(p2.x); p2 -= 2.0 * max(dot(k1, p2), 0.0) * k1; p2 -= 2.0 * max(dot(k2, p2), 0.0) * k2; p2.x = abs(p2.x); p2.y -= r; vec2 ba = factor * vec2(-k1.y, k1.x) - vec2(0.0, 1.0); float dH = clamp(dot(p2, ba) / dot(ba, ba), 0.0, r); float d2d = length(p2 - ba * dH) * sign(p2.y * ba.x - p2.x * ba.y); vec2 w = vec2(d2d, abs(p.z) - h); return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)); }');
     lines.push('');
     lines.push('// --- CSG BOOLEAN OPERATIONS ---');
     lines.push('float sminPoly(float a, float b, float k) { if (k <= 0.0001) return min(a, b); float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0); return mix(b, a, h) - k * h * (1.0 - h); }');
@@ -224,6 +230,43 @@ export class ShaderExporter {
         return `sdTetrahedron(${pVar}, ${(dims.radius ?? 0.8).toFixed(4)})`;
       case 'mandelbulb':
         return `sdMandelbulb(${pVar})`;
+      case 'capped_torus': {
+        const ra = (dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7).toFixed(4);
+        const rb = (dims.radiusMinor ?? dims.thickness ?? 0.25).toFixed(4);
+        const arc = (dims.arcAngle ?? Math.PI / 2) * 0.5;
+        const sinA = Math.sin(arc).toFixed(4);
+        const cosA = Math.cos(arc).toFixed(4);
+        return `sdCappedTorus(${pVar}, vec2(${sinA}, ${cosA}), ${ra}, ${rb})`;
+      }
+      case 'chain_link': {
+        const le = ((dims.linkLength ?? 0.6) * 0.5).toFixed(4);
+        const r1 = (dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7).toFixed(4);
+        const r2 = (dims.radiusMinor ?? dims.thickness ?? 0.25).toFixed(4);
+        return `sdLink(${pVar}, ${le}, ${r1}, ${r2})`;
+      }
+      case 'chamfer_cylinder': {
+        const h = ((dims.height ?? 0.8) * 0.5).toFixed(4);
+        const r = (dims.radius ?? 0.5).toFixed(4);
+        const c = (dims.chamfer ?? 0.08).toFixed(4);
+        return `sdChamferCylinder(${pVar}, ${h}, ${r}, ${c})`;
+      }
+      case 'egg': {
+        const ra = (dims.baseRadius ?? dims.radius ?? 0.6).toFixed(4);
+        const rb = (dims.tipRadius ?? 0.25).toFixed(4);
+        const h = (dims.height ?? 0.8).toFixed(4);
+        return `sdEgg(${pVar}, ${ra}, ${rb}, ${h})`;
+      }
+      case 'heart': {
+        const s = (dims.radius ?? dims.outerRadius ?? 0.75).toFixed(4);
+        const h = (dims.thickness ?? (dims.height ? dims.height * 0.5 : 0.25)).toFixed(4);
+        return `sdHeart(${pVar}, ${s}, ${h})`;
+      }
+      case 'star_prism': {
+        const r = (dims.outerRadius ?? dims.radius ?? 0.75).toFixed(4);
+        const rf = (dims.innerRadius ?? 0.35).toFixed(4);
+        const h = ((dims.height ?? 0.8) * 0.5).toFixed(4);
+        return `sdStar5(${pVar}, ${r}, ${rf}, ${h})`;
+      }
       default:
         return `sdSphere(${pVar}, 0.8)`;
     }

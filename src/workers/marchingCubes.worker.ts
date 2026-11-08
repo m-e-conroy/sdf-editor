@@ -206,6 +206,155 @@ function sdMandelbulb(x: number, y: number, z: number): number {
   return (0.25 * Math.log(m) * Math.sqrt(m) / dz) / 0.8;
 }
 
+function sdCappedTorus(x: number, y: number, z: number, ra: number, rb: number, arcAngle: number): number {
+  const th = arcAngle * 0.5;
+  const scX = Math.sin(th);
+  const scY = Math.cos(th);
+  const px = Math.abs(x);
+  const py = y;
+  const k = (scY * px > scX * py) ? (px * scX + py * scY) : Math.hypot(px, py);
+  return Math.sqrt(Math.max(0.0, x * x + y * y + z * z + ra * ra - 2.0 * ra * k)) - rb;
+}
+
+function sdLink(x: number, y: number, z: number, le: number, r1: number, r2: number): number {
+  const qy = Math.max(Math.abs(y) - le, 0.0);
+  return Math.hypot(Math.hypot(x, qy) - r1, z) - r2;
+}
+
+function sdChamferCylinder(x: number, y: number, z: number, h: number, r: number, c: number): number {
+  if (c <= 0.0001) {
+    const dx = Math.hypot(x, z) - r;
+    const dy = Math.abs(y) - h;
+    return Math.min(Math.max(dx, dy), 0.0) + Math.hypot(Math.max(dx, 0.0), Math.max(dy, 0.0));
+  }
+  c = Math.min(c, Math.min(r, h));
+  const qx = Math.hypot(x, z);
+  const qy = Math.abs(y);
+  const ux = qx - r;
+  const uy = qy - h;
+  const dChamfer = (ux + uy + c) * 0.7071067811865475;
+
+  const p0x = r - c;
+  const p0y = h;
+  const p1x = r;
+  const p1y = h - c;
+  const ex = p1x - p0x;
+  const ey = p1y - p0y;
+  const wx = qx - p0x;
+  const wy = qy - p0y;
+  const dotEE = ex * ex + ey * ey;
+  const t = Math.max(0.0, Math.min(1.0, (wx * ex + wy * ey) / (dotEE > 1e-6 ? dotEE : 1e-6)));
+  const bx = wx - ex * t;
+  const by = wy - ey * t;
+  const dEdge = Math.hypot(bx, by);
+
+  let dOut: number;
+  if (qx > r && qy < h - c) {
+    dOut = qx - r;
+  } else if (qy > h && qx < r - c) {
+    dOut = qy - h;
+  } else if (qx <= r && qy <= h && dChamfer <= 0.0) {
+    dOut = 0.0;
+  } else {
+    dOut = dEdge;
+  }
+
+  const dIn = Math.max(Math.max(ux, uy), dChamfer);
+  return dIn > 0.0 ? dOut : dIn;
+}
+
+function sdEgg(x: number, y: number, z: number, ra: number, rb: number, h: number): number {
+  const k = 1.7320508075688772; // sqrt(3.0)
+  ra = Math.max(ra, 0.001);
+  rb = Math.max(rb, 0.001);
+  const r = ra - rb;
+  const sc = Math.abs(r) > 0.001 ? h / (k * Math.abs(r)) : 1.0;
+  const qx = Math.hypot(x, z);
+  const qy = y / Math.max(sc, 0.001);
+  let d: number;
+  if (r > 0.001) {
+    if (qy < 0.0) {
+      d = Math.hypot(qx, qy) - r - rb;
+    } else if (k * (qx + r) < qy) {
+      d = Math.hypot(qx, qy - k * r) - rb;
+    } else {
+      d = Math.hypot(qx + r, qy) - 2.0 * r - rb;
+    }
+  } else {
+    const cy = Math.max(0.0, Math.min(h, qy));
+    d = Math.hypot(qx, qy - cy) - ra;
+  }
+  return d * Math.min(1.0, sc);
+}
+
+function sdHeart(x: number, y: number, z: number, s: number, h: number): number {
+  s = Math.max(s, 0.001);
+  h = Math.max(h, 0.001);
+  const qx = Math.abs(x) / s;
+  const qy = (y + 0.5 * s) / s;
+
+  let d2d: number;
+  if (qy + qx > 1.0) {
+    const d1x = qx - 0.25;
+    const d1y = qy - 0.75;
+    d2d = Math.hypot(d1x, d1y) - 0.3535533905932738;
+  } else {
+    const dAx = qx;
+    const dAy = qy - 1.0;
+    const dotA = dAx * dAx + dAy * dAy;
+
+    const clampVal = 0.5 * Math.max(qx + qy, 0.0);
+    const dBx = qx - clampVal;
+    const dBy = qy - clampVal;
+    const dotB = dBx * dBx + dBy * dBy;
+
+    const sign = qx >= qy ? 1.0 : -1.0;
+    d2d = Math.sqrt(Math.min(dotA, dotB)) * sign;
+  }
+  d2d *= s;
+
+  const wx = d2d;
+  const wy = Math.abs(z) - h;
+  return Math.min(Math.max(wx, wy), 0.0) + Math.hypot(Math.max(wx, 0.0), Math.max(wy, 0.0));
+}
+
+function sdStar5(x: number, y: number, z: number, r: number, rf: number, h: number): number {
+  const k1x = 0.809016994375;
+  const k1y = -0.587785252292;
+  const k2x = -k1x;
+  const k2y = k1y;
+
+  let factor = rf > 0.0 && rf < r ? rf / r : (rf > 0.0 && rf < 1.0 ? rf : 0.5);
+  factor = Math.max(0.1, Math.min(0.9, factor));
+
+  let px = Math.abs(x);
+  let py = y;
+
+  const dot1 = 2.0 * Math.max(k1x * px + k1y * py, 0.0);
+  px -= dot1 * k1x;
+  py -= dot1 * k1y;
+
+  const dot2 = 2.0 * Math.max(k2x * px + k2y * py, 0.0);
+  px -= dot2 * k2x;
+  py -= dot2 * k2y;
+
+  px = Math.abs(px);
+  py -= r;
+
+  const bax = factor * (-k1y);
+  const bay = factor * k1x - 1.0;
+  const dotBa = bax * bax + bay * bay;
+  const dH = Math.max(0.0, Math.min(r, (px * bax + py * bay) / (dotBa > 1e-6 ? dotBa : 1e-6)));
+  const diffX = px - bax * dH;
+  const diffY = py - bay * dH;
+  const sign = (py * bax - px * bay) >= 0 ? 1.0 : -1.0;
+  const d2d = Math.hypot(diffX, diffY) * sign;
+
+  const wx = d2d;
+  const wy = Math.abs(z) - h;
+  return Math.min(Math.max(wx, wy), 0.0) + Math.hypot(Math.max(wx, 0.0), Math.max(wy, 0.0));
+}
+
 function evalPrimitive(type: PrimitiveType, x: number, y: number, z: number, dims: PrimitiveDimensions): number {
   switch (type) {
     case 'sphere':
@@ -240,6 +389,47 @@ function evalPrimitive(type: PrimitiveType, x: number, y: number, z: number, dim
       return sdOctahedron(x, y, z, dims.radius ?? 0.8);
     case 'mandelbulb':
       return sdMandelbulb(x, y, z);
+    case 'capped_torus':
+      return sdCappedTorus(
+        x, y, z,
+        dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7,
+        dims.radiusMinor ?? dims.thickness ?? 0.25,
+        dims.arcAngle ?? Math.PI / 2
+      );
+    case 'chain_link':
+      return sdLink(
+        x, y, z,
+        (dims.linkLength ?? 0.6) * 0.5,
+        dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7,
+        dims.radiusMinor ?? dims.thickness ?? 0.25
+      );
+    case 'chamfer_cylinder':
+      return sdChamferCylinder(
+        x, y, z,
+        (dims.height ?? 0.8) * 0.5,
+        dims.radius ?? 0.5,
+        dims.chamfer ?? 0.08
+      );
+    case 'egg':
+      return sdEgg(
+        x, y, z,
+        dims.baseRadius ?? dims.radius ?? 0.6,
+        dims.tipRadius ?? 0.25,
+        dims.height ?? 0.8
+      );
+    case 'heart':
+      return sdHeart(
+        x, y, z,
+        dims.radius ?? dims.outerRadius ?? 0.75,
+        dims.thickness ?? (dims.height ? dims.height * 0.5 : 0.25)
+      );
+    case 'star_prism':
+      return sdStar5(
+        x, y, z,
+        dims.outerRadius ?? dims.radius ?? 0.75,
+        dims.innerRadius ?? 0.35,
+        (dims.height ?? 0.8) * 0.5
+      );
     case 'plane':
       return y;
     default:

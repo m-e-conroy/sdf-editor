@@ -37,7 +37,13 @@ describe('UniformPacker', () => {
       { type: 'wedge', expectedId: 17 },
       { type: 'frustum', expectedId: 18 },
       { type: 'pentagonal_prism', expectedId: 19 },
-      { type: 'plane', expectedId: 20 }
+      { type: 'plane', expectedId: 20 },
+      { type: 'capped_torus', expectedId: 21 },
+      { type: 'chain_link', expectedId: 22 },
+      { type: 'chamfer_cylinder', expectedId: 23 },
+      { type: 'egg', expectedId: 24 },
+      { type: 'heart', expectedId: 25 },
+      { type: 'star_prism', expectedId: 26 }
     ];
 
     it('should map every primitive type to its specific integer index', () => {
@@ -304,6 +310,73 @@ describe('UniformPacker', () => {
       expect(packed.nodeCount).toBe(MAX_GPU_NODES);
       expect(packed.types).toHaveLength(MAX_GPU_NODES);
       expect(packed.inverseMatrices).toHaveLength(MAX_GPU_NODES);
+    });
+  });
+
+  describe('Mechanical CAD & Organic Shape Packing (Types 21-26)', () => {
+    it('should pack capped_torus dimensions (R, r, arcAngle)', () => {
+      const node = CSGTree.createDefaultNode('capped_torus');
+      node.primitive.dimensions = { radiusMajor: 0.9, radiusMinor: 0.2, arcAngle: Math.PI / 3 };
+      tree.root.children = [node];
+      const packed = UniformPacker.pack(tree);
+      expect(packed.types[0]).toBe(21);
+      expect(packed.dimensions[0].x).toBeCloseTo(0.9);
+      expect(packed.dimensions[0].y).toBeCloseTo(0.2);
+      expect(packed.dimensions[0].z).toBeCloseTo(Math.PI / 3);
+    });
+
+    it('should pack chain_link dimensions (linkLength*0.5, R, r)', () => {
+      const node = CSGTree.createDefaultNode('chain_link');
+      node.primitive.dimensions = { linkLength: 0.8, radiusMajor: 0.65, radiusMinor: 0.15 };
+      tree.root.children = [node];
+      const packed = UniformPacker.pack(tree);
+      expect(packed.types[0]).toBe(22);
+      expect(packed.dimensions[0].x).toBeCloseTo(0.4);
+      expect(packed.dimensions[0].y).toBeCloseTo(0.65);
+      expect(packed.dimensions[0].z).toBeCloseTo(0.15);
+    });
+
+    it('should pack chamfer_cylinder dimensions (height*0.5, radius, chamfer)', () => {
+      const node = CSGTree.createDefaultNode('chamfer_cylinder');
+      node.primitive.dimensions = { height: 1.2, radius: 0.45, chamfer: 0.06 };
+      tree.root.children = [node];
+      const packed = UniformPacker.pack(tree);
+      expect(packed.types[0]).toBe(23);
+      expect(packed.dimensions[0].x).toBeCloseTo(0.6);
+      expect(packed.dimensions[0].y).toBeCloseTo(0.45);
+      expect(packed.dimensions[0].z).toBeCloseTo(0.06);
+    });
+
+    it('should pack egg dimensions (baseRadius, tipRadius, height)', () => {
+      const node = CSGTree.createDefaultNode('egg');
+      node.primitive.dimensions = { baseRadius: 0.55, tipRadius: 0.2, height: 0.95 };
+      tree.root.children = [node];
+      const packed = UniformPacker.pack(tree);
+      expect(packed.types[0]).toBe(24);
+      expect(packed.dimensions[0].x).toBeCloseTo(0.55);
+      expect(packed.dimensions[0].y).toBeCloseTo(0.2);
+      expect(packed.dimensions[0].z).toBeCloseTo(0.95);
+    });
+
+    it('should pack heart dimensions (size, thickness)', () => {
+      const node = CSGTree.createDefaultNode('heart');
+      node.primitive.dimensions = { radius: 0.85, thickness: 0.18 };
+      tree.root.children = [node];
+      const packed = UniformPacker.pack(tree);
+      expect(packed.types[0]).toBe(25);
+      expect(packed.dimensions[0].x).toBeCloseTo(0.85);
+      expect(packed.dimensions[0].y).toBeCloseTo(0.18);
+    });
+
+    it('should pack star_prism dimensions (outerRadius, innerRadius, height*0.5)', () => {
+      const node = CSGTree.createDefaultNode('star_prism');
+      node.primitive.dimensions = { outerRadius: 0.8, innerRadius: 0.38, height: 0.5 };
+      tree.root.children = [node];
+      const packed = UniformPacker.pack(tree);
+      expect(packed.types[0]).toBe(26);
+      expect(packed.dimensions[0].x).toBeCloseTo(0.8);
+      expect(packed.dimensions[0].y).toBeCloseTo(0.38);
+      expect(packed.dimensions[0].z).toBeCloseTo(0.25);
     });
   });
 });

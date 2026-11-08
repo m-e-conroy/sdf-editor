@@ -193,3 +193,113 @@ float sdMandelbulb(vec3 p, int iterations, float power) {
     }
     return 0.25 * log(m) * sqrt(m) / dz;
 }
+
+// 23. Capped Torus / Pipe Elbow (Exact) - sc: vec2(sin(th), cos(th)), ra: major radius, rb: tube radius
+float sdCappedTorus(vec3 p, vec2 sc, float ra, float rb) {
+    p.x = abs(p.x);
+    float k = (sc.y * p.x > sc.x * p.y) ? dot(p.xy, sc) : length(p.xy);
+    return sqrt(max(dot(p, p) + ra * ra - 2.0 * ra * k, 0.0)) - rb;
+}
+
+// 24. Chain Link (Exact) - le: half-length, r1: ring radius, r2: thickness
+float sdLink(vec3 p, float le, float r1, float r2) {
+    vec3 q = vec3(p.x, max(abs(p.y) - le, 0.0), p.z);
+    return length(vec2(length(q.xy) - r1, q.z)) - r2;
+}
+
+// 25. Chamfer Cylinder (Exact) - h: half-height, r: radius, c: chamfer width
+float sdChamferCylinder(vec3 p, float h, float r, float c) {
+    if (c <= 0.0001) {
+        vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h);
+        return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+    }
+    c = min(c, min(r, h));
+    vec2 q = vec2(length(p.xz), abs(p.y));
+    vec2 u = q - vec2(r, h);
+    float dChamfer = (u.x + u.y + c) * 0.70710678;
+
+    vec2 p0 = vec2(r - c, h);
+    vec2 p1 = vec2(r, h - c);
+    vec2 e = p1 - p0;
+    vec2 w = q - p0;
+    vec2 b = w - e * clamp(dot(w, e) / max(dot(e, e), 1e-6), 0.0, 1.0);
+    float dEdge = length(b);
+
+    float dOut;
+    if (q.x > r && q.y < h - c) {
+        dOut = q.x - r;
+    } else if (q.y > h && q.x < r - c) {
+        dOut = q.y - h;
+    } else if (q.x <= r && q.y <= h && dChamfer <= 0.0) {
+        dOut = 0.0;
+    } else {
+        dOut = dEdge;
+    }
+
+    float dIn = max(max(u.x, u.y), dChamfer);
+    return (dIn > 0.0) ? dOut : dIn;
+}
+
+// 26. Asymmetric Egg / Ovoid (Bound) - ra: base radius, rb: tip radius, h: height
+float sdEgg(vec3 p, float ra, float rb, float h) {
+    const float k = 1.732050808; // sqrt(3.0)
+    ra = max(ra, 0.001);
+    rb = max(rb, 0.001);
+    float r = ra - rb;
+    float sc = (abs(r) > 0.001) ? (h / (k * abs(r))) : 1.0;
+    vec2 q = vec2(length(p.xz), p.y / max(sc, 0.001));
+    q.x = abs(q.x);
+    float d;
+    if (r > 0.001) {
+        d = ((q.y < 0.0) ? length(q) - r :
+            (k * (q.x + r) < q.y) ? length(vec2(q.x, q.y - k * r)) :
+            length(vec2(q.x + r, q.y)) - 2.0 * r) - rb;
+    } else {
+        float cy = clamp(q.y, 0.0, h);
+        d = length(vec2(q.x, q.y - cy)) - ra;
+    }
+    return d * min(1.0, sc);
+}
+
+// 27. 3D Heart (Extruded Exact 2D Cardioid) - s: scale/radius, h: half-thickness
+float sdHeart(vec3 p, float s, float h) {
+    s = max(s, 0.001);
+    h = max(h, 0.001);
+    vec2 q = vec2(p.x, p.y + 0.5 * s) / s;
+    q.x = abs(q.x);
+
+    float d2d;
+    if (q.y + q.x > 1.0) {
+        vec2 d1 = q - vec2(0.25, 0.75);
+        d2d = sqrt(dot(d1, d1)) - 0.35355339; // sqrt(2.0)/4.0
+    } else {
+        vec2 dA = q - vec2(0.00, 1.00);
+        vec2 dB = q - 0.5 * max(q.x + q.y, 0.0);
+        d2d = sqrt(min(dot(dA, dA), dot(dB, dB))) * sign(q.x - q.y);
+    }
+    d2d *= s;
+
+    vec2 w = vec2(d2d, abs(p.z) - h);
+    return min(max(w.x, w.y), 0.0) + length(max(w, 0.0));
+}
+
+// 28. 5-Pointed Star Prism (Exact) - r: outer radius, rf: inner radius or factor, h: half-height
+float sdStar5(vec3 p, float r, float rf, float h) {
+    const vec2 k1 = vec2(0.809016994375, -0.587785252292);
+    const vec2 k2 = vec2(-k1.x, k1.y);
+
+    float factor = clamp(rf > 0.0 && rf < r ? rf / r : (rf > 0.0 && rf < 1.0 ? rf : 0.5), 0.1, 0.9);
+
+    vec2 p2 = p.xy;
+    p2.x = abs(p2.x);
+    p2 -= 2.0 * max(dot(k1, p2), 0.0) * k1;
+    p2 -= 2.0 * max(dot(k2, p2), 0.0) * k2;
+    p2.x = abs(p2.x);
+    p2.y -= r;
+    vec2 ba = factor * vec2(-k1.y, k1.x) - vec2(0.0, 1.0);
+    float dH = clamp(dot(p2, ba) / max(dot(ba, ba), 1e-6), 0.0, r);
+    float d2d = length(p2 - ba * dH) * sign(p2.y * ba.x - p2.x * ba.y);
+
+    vec2 w = vec2(d2d, abs(p.z) - h);
+    return min(max(w.x, w.y), 0.0) + length(max(w, 0.0));
+}

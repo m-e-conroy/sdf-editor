@@ -36,7 +36,13 @@ export class UniformPacker {
     wedge: 17,
     frustum: 18,
     pentagonal_prism: 19,
-    plane: 20
+    plane: 20,
+    capped_torus: 21,
+    chain_link: 22,
+    chamfer_cylinder: 23,
+    egg: 24,
+    heart: 25,
+    star_prism: 26
   };
 
   public static pack(tree: CSGTree): PackedUniformData {
@@ -90,6 +96,48 @@ export class UniformPacker {
           dimVec = new THREE.Vector4(dims.height ?? 0.8, dims.baseRadius ?? dims.radius ?? 0.6, dims.topRadius ?? 0.0, 0);
         } else if (node.primitive.type === 'hemisphere' || node.primitive.type === 'tetrahedron' || node.primitive.type === 'octahedron') {
           dimVec = new THREE.Vector4(dims.radius ?? 0.8, 0, 0, 0);
+        } else if (node.primitive.type === 'capped_torus') {
+          dimVec = new THREE.Vector4(
+            dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7,
+            dims.radiusMinor ?? dims.thickness ?? 0.25,
+            dims.arcAngle ?? Math.PI / 2,
+            0
+          );
+        } else if (node.primitive.type === 'chain_link') {
+          dimVec = new THREE.Vector4(
+            (dims.linkLength ?? 0.6) * 0.5,
+            dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7,
+            dims.radiusMinor ?? dims.thickness ?? 0.25,
+            0
+          );
+        } else if (node.primitive.type === 'chamfer_cylinder') {
+          dimVec = new THREE.Vector4(
+            (dims.height ?? 0.8) * 0.5,
+            dims.radius ?? 0.5,
+            dims.chamfer ?? 0.08,
+            0
+          );
+        } else if (node.primitive.type === 'egg') {
+          dimVec = new THREE.Vector4(
+            dims.baseRadius ?? dims.radius ?? 0.6,
+            dims.tipRadius ?? 0.25,
+            dims.height ?? 0.8,
+            0
+          );
+        } else if (node.primitive.type === 'heart') {
+          dimVec = new THREE.Vector4(
+            dims.radius ?? dims.outerRadius ?? 0.75,
+            dims.thickness ?? (dims.height ? dims.height * 0.5 : 0.25),
+            0,
+            0
+          );
+        } else if (node.primitive.type === 'star_prism') {
+          dimVec = new THREE.Vector4(
+            dims.outerRadius ?? dims.radius ?? 0.75,
+            dims.innerRadius ?? 0.35,
+            (dims.height ?? 0.8) * 0.5,
+            0
+          );
         } else {
           dimVec = new THREE.Vector4(dims.radius ?? 0.8, dims.height ?? 0.8, 0, 0);
         }

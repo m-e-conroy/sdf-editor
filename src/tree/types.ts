@@ -23,7 +23,13 @@ export type PrimitiveType =
   | 'hexagonal_prism'
   | 'tetrahedron'
   | 'octahedron'
-  | 'mandelbulb';
+  | 'mandelbulb'
+  | 'capped_torus'
+  | 'chain_link'
+  | 'chamfer_cylinder'
+  | 'egg'
+  | 'heart'
+  | 'star_prism';
 
 export interface PrimitiveDimensions {
   radius?: number;
@@ -39,6 +45,12 @@ export interface PrimitiveDimensions {
   bevelAngle?: number;
   fractalIterations?: number;
   fractalPower?: number;
+  arcAngle?: number;
+  linkLength?: number;
+  chamfer?: number;
+  tipRadius?: number;
+  innerRadius?: number;
+  outerRadius?: number;
 }
 
 export type CSGOpType = 'union' | 'difference' | 'intersection';

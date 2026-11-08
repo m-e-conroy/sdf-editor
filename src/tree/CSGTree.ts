@@ -31,7 +31,13 @@ export class CSGTree {
           radiusMajor: 0.7,
           radiusMinor: 0.25,
           thickness: 0.08,
-          radii: [0.8, 0.6, 0.5]
+          radii: [0.8, 0.6, 0.5],
+          arcAngle: Math.PI / 2,
+          linkLength: 0.6,
+          chamfer: 0.08,
+          tipRadius: 0.25,
+          innerRadius: 0.35,
+          outerRadius: 0.75
         }
       },
       csg: {

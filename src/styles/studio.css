@@ -42,7 +42,8 @@ html, body {
 }
 
 /* Export Modal Dialog - Fixed Overlay Container */
-sdf-export-modal {
+sdf-export-modal,
+sdf-shape-palette {
   display: none;
   position: fixed;
   inset: 0;

@@ -1,7 +1,7 @@
 # SDF Studio 3D - Sprint Backlog & Task Tracker
 
 > **Project:** SDF Studio 3D  
-> **Status:** All Milestones (1 through 6) Complete - Production Ready  
+> **Status:** All Milestones (1 through 8) Complete - Production Ready  
 > **Manager:** Project Manager Agent  
 > **Target Path:** `projects/sdf-editor/`
 
@@ -44,6 +44,31 @@
 | **M6.9** | 3D Transform Gizmo Mode Switcher (Move, Rotate, Scale)               | `frontend-developer` | ✅ Complete | Viewport HUD segmented buttons, Inspector pills, G/W, R/E, S keys  |
 | **M6.10**| Viewport HUD & Inspector Light Theme Adaptation                      | `frontend-developer` | ✅ Complete | Dynamic `[data-theme="light"]` styling for HUD toolbar & gizmo buttons |
 | **M6.11**| Ellipsoid & Non-Uniform Primitive Packing & GLSL Robustness         | `game-developer`     | ✅ Complete | Fixed radii packing (dim.xyz), safe denominator bounds & Inspector controls |
+
+---
+
+## Milestone 7: Floating Geometric Shape Palette & Visual Asset Shelf - ✅ Complete
+
+| ID       | Task Description                                                     | Owner                |   Status    | Notes                                                              |
+| :------- | :------------------------------------------------------------------- | :------------------- | :---------: | :----------------------------------------------------------------- |
+| **M7.1** | 15 Bespoke 3D Rendered Isometric Clay SVG Shape Icons                | `creative-director`  | ✅ Complete | Three-point studio lighting, specular highlights & contact shadows |
+| **M7.2** | Floating Glassmorphic `<sdf-shape-palette>` Web Component            | `frontend-developer` | ✅ Complete | 4-col card grid, search bar, category tabs, dual-theme support     |
+| **M7.3** | Menu Bar Header Refactor & Shift+A Hotkey Integration               | `frontend-developer` | ✅ Complete | Replaced `<select>` with tactile Add Shape button & Shift+A shortcut |
+| **M7.4** | Scene Integration, Spawning Jitter & Node Selection                 | `frontend-developer` | ✅ Complete | Direct CSGTree node creation, viewport & outliner synchronization   |
+| **M7.5** | Shape Palette Unit Test Suite & Verification Gate                   | `test-engineer`      | ✅ Complete | 77/77 tests passing (6 suites), 0 TS errors, clean build          |
+
+---
+
+## Milestone 8: Mechanical CAD & Stylized Organic Primitives Expansion - ✅ Complete
+
+| ID       | Task Description                                                     | Owner                |   Status    | Notes                                                              |
+| :------- | :------------------------------------------------------------------- | :------------------- | :---------: | :----------------------------------------------------------------- |
+| **M8.1** | Primitive Type Definitions & AST Dimensions Updates                  | `game-developer`     | ✅ Complete | Added 6 new primitives (pipe_elbow, chain_link, etc.) & dimensions |
+| **M8.2** | GPU Raymarching Shaders (GLSL) & Uniform Packer                      | `game-developer`     | ✅ Complete | Capped torus, link, chamfer cylinder, egg, heart, star prism (IDs 21-26) |
+| **M8.3** | CPU Marching Cubes Mesh Exporter & Standalone Shader Exporter        | `game-developer`     | ✅ Complete | OBJ/GLB mesh volume sampling & Shadertoy GLSL exporter branches   |
+| **M8.4** | 6 Bespoke 3D Rendered Isometric Clay SVG Icons                       | `creative-director`  | ✅ Complete | Studio 3-point lighting, specular highlights & contact shadows     |
+| **M8.5** | Advanced Multi-Parameter Properties Inspector Controls               | `frontend-developer` | ✅ Complete | Multi-slider scrubbers (arc angle, link length, chamfer, etc.)     |
+| **M8.6** | Milestone 8 Test Suite & Quality Gate Verification                   | `test-engineer`      | ✅ Complete | 83/83 unit tests passing, 0 TypeScript errors, clean prod build    |
 
 ---
 

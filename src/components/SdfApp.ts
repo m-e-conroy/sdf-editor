@@ -39,6 +39,9 @@ export class SdfApp extends HTMLElement {
 
       <!-- Asset, Mesh & Shader Export Modal -->
       <sdf-export-modal></sdf-export-modal>
+
+      <!-- Floating Geometric Shape Palette -->
+      <sdf-shape-palette></sdf-shape-palette>
     `;
   }
 }

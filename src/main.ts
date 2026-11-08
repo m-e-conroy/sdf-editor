@@ -10,6 +10,7 @@ import './components/SdfOutliner';
 import './components/SdfInspector';
 import './components/SdfStatusBar';
 import './components/SdfExportModal';
+import './components/SdfShapePalette';
 import './components/SdfApp';
 
 // Restore user theme preference

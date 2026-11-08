@@ -521,6 +521,144 @@ export class SdfInspector extends HTMLElement {
           <input type="range" id="dim-thick" class="range-slider" min="0.01" max="0.3" step="0.01" value="${dims.thickness ?? 0.08}" />
         </div>
       `;
+    } else if (type === 'capped_torus') {
+      const deg = Math.round(((dims.arcAngle ?? (Math.PI / 2)) * 180) / Math.PI);
+      return `
+        <div class="field-row">
+          <span class="field-label">Major Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-capped-R" class="range-slider" min="0.2" max="2.5" step="0.05" value="${dims.radiusMajor ?? 0.7}" />
+            <span id="label-capped-R" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.radiusMajor ?? 0.7).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Tube Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-capped-r" class="range-slider" min="0.05" max="0.8" step="0.02" value="${dims.radiusMinor ?? 0.25}" />
+            <span id="label-capped-r" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.radiusMinor ?? 0.25).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Arc Sweep:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-capped-arc" class="range-slider" min="30" max="360" step="5" value="${deg}" />
+            <span id="label-capped-arc" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${deg}°</span>
+          </div>
+        </div>
+      `;
+    } else if (type === 'chain_link') {
+      return `
+        <div class="field-row">
+          <span class="field-label">Link Length:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-link-len" class="range-slider" min="0.1" max="2.5" step="0.05" value="${dims.linkLength ?? 0.6}" />
+            <span id="label-link-len" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.linkLength ?? 0.6).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Ring Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-link-R" class="range-slider" min="0.2" max="2.0" step="0.05" value="${dims.radiusMajor ?? 0.5}" />
+            <span id="label-link-R" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.radiusMajor ?? 0.5).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Thickness:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-link-thick" class="range-slider" min="0.02" max="0.5" step="0.02" value="${dims.thickness ?? 0.15}" />
+            <span id="label-link-thick" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.thickness ?? 0.15).toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    } else if (type === 'chamfer_cylinder') {
+      return `
+        <div class="field-row">
+          <span class="field-label">Height:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-chamfer-h" class="range-slider" min="0.2" max="3.0" step="0.05" value="${dims.height ?? 0.8}" />
+            <span id="label-chamfer-h" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.height ?? 0.8).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-chamfer-r" class="range-slider" min="0.1" max="2.0" step="0.05" value="${dims.radius ?? 0.5}" />
+            <span id="label-chamfer-r" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.radius ?? 0.5).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Chamfer:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-chamfer-c" class="range-slider" min="0.01" max="0.3" step="0.01" value="${dims.chamfer ?? 0.08}" />
+            <span id="label-chamfer-c" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.chamfer ?? 0.08).toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    } else if (type === 'egg') {
+      return `
+        <div class="field-row">
+          <span class="field-label">Height:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-egg-h" class="range-slider" min="0.3" max="3.0" step="0.05" value="${dims.height ?? 1.2}" />
+            <span id="label-egg-h" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.height ?? 1.2).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Base Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-egg-base" class="range-slider" min="0.2" max="2.0" step="0.05" value="${dims.baseRadius ?? 0.5}" />
+            <span id="label-egg-base" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.baseRadius ?? 0.5).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Tip Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-egg-tip" class="range-slider" min="0.05" max="1.5" step="0.05" value="${dims.tipRadius ?? 0.25}" />
+            <span id="label-egg-tip" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.tipRadius ?? 0.25).toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    } else if (type === 'heart') {
+      return `
+        <div class="field-row">
+          <span class="field-label">Scale/Size:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-heart-s" class="range-slider" min="0.2" max="3.0" step="0.05" value="${dims.radius ?? 0.8}" />
+            <span id="label-heart-s" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.radius ?? 0.8).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Thickness:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-heart-th" class="range-slider" min="0.05" max="1.5" step="0.02" value="${dims.height ?? 0.3}" />
+            <span id="label-heart-th" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.height ?? 0.3).toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    } else if (type === 'star_prism') {
+      return `
+        <div class="field-row">
+          <span class="field-label">Outer Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-star-outer" class="range-slider" min="0.2" max="3.0" step="0.05" value="${dims.outerRadius ?? 0.75}" />
+            <span id="label-star-outer" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.outerRadius ?? 0.75).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Inner Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-star-inner" class="range-slider" min="0.1" max="2.0" step="0.05" value="${dims.innerRadius ?? 0.35}" />
+            <span id="label-star-inner" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.innerRadius ?? 0.35).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Height:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-star-h" class="range-slider" min="0.1" max="3.0" step="0.05" value="${dims.height ?? 0.4}" />
+            <span id="label-star-h" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.height ?? 0.4).toFixed(2)}</span>
+          </div>
+        </div>
+      `;
     } else {
       return `
         <div class="field-row">
@@ -797,6 +935,234 @@ export class SdfInspector extends HTMLElement {
         primitive: {
           ...node.primitive,
           dimensions: { ...node.primitive.dimensions, height: val, radius: val }
+        }
+      });
+    });
+
+    // Capped Torus Listeners
+    const cappedR = this.querySelector('#dim-capped-R') as HTMLInputElement;
+    const labelCappedR = this.querySelector('#label-capped-R');
+    cappedR?.addEventListener('input', () => {
+      const val = parseFloat(cappedR.value);
+      if (labelCappedR) labelCappedR.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, radiusMajor: val }
+        }
+      });
+    });
+
+    const cappedr = this.querySelector('#dim-capped-r') as HTMLInputElement;
+    const labelCappedr = this.querySelector('#label-capped-r');
+    cappedr?.addEventListener('input', () => {
+      const val = parseFloat(cappedr.value);
+      if (labelCappedr) labelCappedr.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, radiusMinor: val }
+        }
+      });
+    });
+
+    const cappedArc = this.querySelector('#dim-capped-arc') as HTMLInputElement;
+    const labelCappedArc = this.querySelector('#label-capped-arc');
+    cappedArc?.addEventListener('input', () => {
+      const deg = parseFloat(cappedArc.value);
+      if (labelCappedArc) labelCappedArc.textContent = `${deg}°`;
+      const rad = (deg * Math.PI) / 180;
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, arcAngle: rad }
+        }
+      });
+    });
+
+    // Chain Link Listeners
+    const linkLen = this.querySelector('#dim-link-len') as HTMLInputElement;
+    const labelLinkLen = this.querySelector('#label-link-len');
+    linkLen?.addEventListener('input', () => {
+      const val = parseFloat(linkLen.value);
+      if (labelLinkLen) labelLinkLen.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, linkLength: val }
+        }
+      });
+    });
+
+    const linkR = this.querySelector('#dim-link-R') as HTMLInputElement;
+    const labelLinkR = this.querySelector('#label-link-R');
+    linkR?.addEventListener('input', () => {
+      const val = parseFloat(linkR.value);
+      if (labelLinkR) labelLinkR.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, radiusMajor: val }
+        }
+      });
+    });
+
+    const linkThick = this.querySelector('#dim-link-thick') as HTMLInputElement;
+    const labelLinkThick = this.querySelector('#label-link-thick');
+    linkThick?.addEventListener('input', () => {
+      const val = parseFloat(linkThick.value);
+      if (labelLinkThick) labelLinkThick.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, thickness: val }
+        }
+      });
+    });
+
+    // Chamfer Cylinder Listeners
+    const chamferH = this.querySelector('#dim-chamfer-h') as HTMLInputElement;
+    const labelChamferH = this.querySelector('#label-chamfer-h');
+    chamferH?.addEventListener('input', () => {
+      const val = parseFloat(chamferH.value);
+      if (labelChamferH) labelChamferH.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, height: val }
+        }
+      });
+    });
+
+    const chamferR = this.querySelector('#dim-chamfer-r') as HTMLInputElement;
+    const labelChamferR = this.querySelector('#label-chamfer-r');
+    chamferR?.addEventListener('input', () => {
+      const val = parseFloat(chamferR.value);
+      if (labelChamferR) labelChamferR.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, radius: val }
+        }
+      });
+    });
+
+    const chamferC = this.querySelector('#dim-chamfer-c') as HTMLInputElement;
+    const labelChamferC = this.querySelector('#label-chamfer-c');
+    chamferC?.addEventListener('input', () => {
+      const val = parseFloat(chamferC.value);
+      if (labelChamferC) labelChamferC.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, chamfer: val }
+        }
+      });
+    });
+
+    // Egg Listeners
+    const eggH = this.querySelector('#dim-egg-h') as HTMLInputElement;
+    const labelEggH = this.querySelector('#label-egg-h');
+    eggH?.addEventListener('input', () => {
+      const val = parseFloat(eggH.value);
+      if (labelEggH) labelEggH.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, height: val }
+        }
+      });
+    });
+
+    const eggBase = this.querySelector('#dim-egg-base') as HTMLInputElement;
+    const labelEggBase = this.querySelector('#label-egg-base');
+    eggBase?.addEventListener('input', () => {
+      const val = parseFloat(eggBase.value);
+      if (labelEggBase) labelEggBase.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, baseRadius: val }
+        }
+      });
+    });
+
+    const eggTip = this.querySelector('#dim-egg-tip') as HTMLInputElement;
+    const labelEggTip = this.querySelector('#label-egg-tip');
+    eggTip?.addEventListener('input', () => {
+      const val = parseFloat(eggTip.value);
+      if (labelEggTip) labelEggTip.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, tipRadius: val }
+        }
+      });
+    });
+
+    // Heart Listeners
+    const heartS = this.querySelector('#dim-heart-s') as HTMLInputElement;
+    const labelHeartS = this.querySelector('#label-heart-s');
+    heartS?.addEventListener('input', () => {
+      const val = parseFloat(heartS.value);
+      if (labelHeartS) labelHeartS.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, radius: val }
+        }
+      });
+    });
+
+    const heartTh = this.querySelector('#dim-heart-th') as HTMLInputElement;
+    const labelHeartTh = this.querySelector('#label-heart-th');
+    heartTh?.addEventListener('input', () => {
+      const val = parseFloat(heartTh.value);
+      if (labelHeartTh) labelHeartTh.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, height: val, thickness: val }
+        }
+      });
+    });
+
+    // Star Prism Listeners
+    const starOuter = this.querySelector('#dim-star-outer') as HTMLInputElement;
+    const labelStarOuter = this.querySelector('#label-star-outer');
+    starOuter?.addEventListener('input', () => {
+      const val = parseFloat(starOuter.value);
+      if (labelStarOuter) labelStarOuter.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, outerRadius: val }
+        }
+      });
+    });
+
+    const starInner = this.querySelector('#dim-star-inner') as HTMLInputElement;
+    const labelStarInner = this.querySelector('#label-star-inner');
+    starInner?.addEventListener('input', () => {
+      const val = parseFloat(starInner.value);
+      if (labelStarInner) labelStarInner.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, innerRadius: val }
+        }
+      });
+    });
+
+    const starH = this.querySelector('#dim-star-h') as HTMLInputElement;
+    const labelStarH = this.querySelector('#label-star-h');
+    starH?.addEventListener('input', () => {
+      const val = parseFloat(starH.value);
+      if (labelStarH) labelStarH.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, height: val }
         }
       });
     });

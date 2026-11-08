@@ -1,6 +1,6 @@
 import { SceneStore } from '../store/SceneStore';
 import { CSGTree } from '../tree/CSGTree';
-import { PrimitiveType, SDFSceneDocument } from '../tree/types';
+import { SDFSceneDocument } from '../tree/types';
 import { downloadBlob } from '../engine/MeshExporter';
 
 export class SdfMenuBar extends HTMLElement {
@@ -177,18 +177,41 @@ export class SdfMenuBar extends HTMLElement {
           align-items: center;
           gap: 8px;
         }
-        .add-select {
+        .btn-add-shape {
           background: var(--bg-input);
           border: 1px solid var(--border-subtle);
           color: var(--text-primary);
           padding: 4px 10px;
-          border-radius: 4px;
+          border-radius: 5px;
           font-size: 12px;
-          outline: none;
+          font-weight: 500;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 120ms ease;
         }
-        .add-select:focus {
-          border-color: var(--border-focus);
+        .btn-add-shape:hover {
+          border-color: var(--accent-primary);
+          color: var(--accent-primary);
+          background: var(--bg-panel-elevated);
+        }
+        .btn-add-shape .btn-plus-icon {
+          stroke: var(--accent-primary);
+          flex-shrink: 0;
+        }
+        .btn-add-shape .hotkey-pill {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9px;
+          font-weight: 600;
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--text-muted);
+          padding: 1px 4px;
+          border-radius: 3px;
+          margin-left: 2px;
+        }
+        [data-theme="light"] .btn-add-shape .hotkey-pill {
+          background: rgba(0, 0, 0, 0.07);
         }
         .actions-section {
           display: flex;
@@ -271,33 +294,13 @@ export class SdfMenuBar extends HTMLElement {
         </div>
 
         <div class="center-tools">
-          <span style="color: var(--text-secondary); font-size: 12px;">+ Add Shape:</span>
-          <select id="add-primitive-select" class="add-select">
-            <option value="" disabled selected>Select Shape...</option>
-            <optgroup label="Basic Euclidean">
-              <option value="sphere">⚪ Sphere</option>
-              <option value="box">📦 Box / Cube</option>
-              <option value="cylinder">🥫 Cylinder</option>
-              <option value="torus">🍩 Torus</option>
-              <option value="capsule">💊 Capsule</option>
-              <option value="cone">🔺 Cone</option>
-            </optgroup>
-            <optgroup label="Curved & Hollow">
-              <option value="pipe">⭕ Pipe / Hollow Tube</option>
-              <option value="hemisphere">🌓 Hemisphere</option>
-              <option value="ellipsoid">🥚 Ellipsoid</option>
-            </optgroup>
-            <optgroup label="Polyhedra & Prisms">
-              <option value="pyramid">▲ Square Pyramid</option>
-              <option value="hexagonal_prism">🛑 Hexagonal Prism</option>
-              <option value="triangular_prism">📐 Triangular Prism</option>
-              <option value="tetrahedron">💠 Tetrahedron</option>
-              <option value="octahedron">💎 Octahedron</option>
-            </optgroup>
-            <optgroup label="3D Fractals">
-              <option value="mandelbulb">🌀 Mandelbulb Fractal</option>
-            </optgroup>
-          </select>
+          <button id="btn-open-shapes" class="btn-add-shape" title="Add 3D Geometric Primitive (Shift+A)">
+            <svg class="btn-plus-icon" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 2v12M2 8h12"/>
+            </svg>
+            <span>Add Shape</span>
+            <kbd class="hotkey-pill">Shift+A</kbd>
+          </button>
 
           <button id="btn-reset-demo" class="btn-icon" title="Reset to CSG Box-Minus-Sphere Demo">
             🔄 Reset Demo
@@ -386,20 +389,10 @@ export class SdfMenuBar extends HTMLElement {
     const redoBtn = this.querySelector('#btn-redo') as HTMLButtonElement;
     redoBtn?.addEventListener('click', () => this.sceneStore.redo());
 
-    // Add primitive select
-    const addSelect = this.querySelector('#add-primitive-select') as HTMLSelectElement;
-    addSelect?.addEventListener('change', () => {
-      const type = addSelect.value as PrimitiveType;
-      if (type) {
-        const newNode = CSGTree.createDefaultNode(type);
-        newNode.transform.position = [
-          (Math.random() - 0.5) * 0.5,
-          (Math.random() - 0.5) * 0.5,
-          (Math.random() - 0.5) * 0.5
-        ];
-        this.sceneStore.addNode(newNode);
-        addSelect.selectedIndex = 0;
-      }
+    // Open Floating Shape Palette button
+    const btnOpenShapes = this.querySelector('#btn-open-shapes') as HTMLButtonElement;
+    btnOpenShapes?.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('toggle-shape-palette'));
     });
 
     // Reset demo
