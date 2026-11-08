@@ -1,0 +1,46 @@
+/* Dual-Theme CSS Design Tokens for SDF Studio 3D */
+
+:root,
+[data-theme="dark"] {
+  --bg-app-base: #121212;
+  --bg-panel: #1e1e1e;
+  --bg-panel-elevated: #282828;
+  --bg-input: #181818;
+  --border-subtle: #323232;
+  --border-focus: #ea7600;
+  --accent-primary: #ea7600;
+  --accent-hover: #ff9429;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --badge-union: #27ae60;
+  --badge-difference: #e74c3c;
+  --badge-intersection: #2980b9;
+  --badge-smooth: #9b59b6;
+  --dock-ghost: rgba(234, 118, 0, 0.22);
+  --dock-tray-bg: rgba(24, 24, 24, 0.85);
+  --viewport-grid: #262626;
+  --shadow-elevation: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="light"] {
+  --bg-app-base: #f4f4f6;
+  --bg-panel: #ffffff;
+  --bg-panel-elevated: #e8e8ed;
+  --bg-input: #f0f0f3;
+  --border-subtle: #d4d4d8;
+  --border-focus: #ea7600;
+  --accent-primary: #d96b00;
+  --accent-hover: #e07300;
+  --text-primary: #18181b;
+  --text-secondary: #71717a;
+  --text-muted: #a1a1aa;
+  --badge-union: #16a34a;
+  --badge-difference: #dc2626;
+  --badge-intersection: #2563eb;
+  --badge-smooth: #9333ea;
+  --dock-ghost: rgba(217, 107, 0, 0.18);
+  --dock-tray-bg: rgba(255, 255, 255, 0.85);
+  --viewport-grid: #e2e8f0;
+  --shadow-elevation: 0 8px 32px rgba(0, 0, 0, 0.08);
+}

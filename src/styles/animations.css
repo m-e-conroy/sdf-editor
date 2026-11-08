@@ -1,0 +1,38 @@
+/* Micro-Interaction Transitions & Spring Physics */
+
+:root {
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+}
+
+.animate-spring {
+  transition: all var(--duration-normal) var(--ease-spring);
+}
+
+.window-park {
+  animation: parkWindow var(--duration-normal) var(--ease-spring) forwards;
+}
+
+.window-unpark {
+  animation: unparkWindow var(--duration-normal) var(--ease-spring) forwards;
+}
+
+@keyframes parkWindow {
+  0% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.92) translateY(20px); }
+}
+
+@keyframes unparkWindow {
+  0% { opacity: 0; transform: scale(0.92) translateY(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.dock-ghost-active {
+  animation: pulseGhost 1s infinite alternate ease-in-out;
+}
+
+@keyframes pulseGhost {
+  0% { opacity: 0.6; }
+  100% { opacity: 0.9; }
+}

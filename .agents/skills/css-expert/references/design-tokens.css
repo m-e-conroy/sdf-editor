@@ -1,0 +1,42 @@
+/**
+ * Semantic Design Tokens System
+ * Decouples raw values from implementation intent.
+ */
+
+:root {
+  /* Primitive Tokens (Raw Colors) */
+  --color-blue-500: #3b82f6;
+  --color-slate-900: #0f172a;
+  --color-slate-50: #f8fafc;
+
+  /* Semantic Tokens (Intent-based) */
+  --bg-primary: var(--color-slate-50);
+  --text-primary: var(--color-slate-900);
+  --brand-accent: var(--color-blue-500);
+
+  /* Spacing Scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 2rem;
+
+  /* Typography */
+  --font-heading: 'Inter', sans-serif;
+  --font-body: 'Roboto', sans-serif;
+  --size-h1: 2.5rem;
+  --size-body: 1rem;
+}
+
+/* Dark Mode Overrides */
+[data-theme='dark'] {
+  --bg-primary: var(--color-slate-900);
+  --text-primary: var(--color-slate-50);
+}
+
+/* Component Usage Example */
+.button-primary {
+  background-color: var(--brand-accent);
+  color: white;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 0.5rem;
+}

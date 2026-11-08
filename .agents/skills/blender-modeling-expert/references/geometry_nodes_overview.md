@@ -1,0 +1,500 @@
+# Geometry Nodes Overview
+
+# Geometry Nodes Modifier
+*Geometry Nodes *modifier creates modifier with node group which defines its functionality.
+new Geometry Nodes modifier with new node group.
+This modifier is supported by mesh, curve, text, and volume objects.
+## Options
+**Node Group **
+Node Group with geometry input and output. Those are respectively what is received and passed to previous and next modifier in stack. See Nodes for all available nodes.
+**Inputs **
+list of node group’s inputs which can have unique values even if group is shared among multiple modifiers.
+If input is connected to Field socket, there will be toggle to switch between using single value for input or using attribute on input geometry. Using attribute for input means value can be different for every element.
+attribute name used by default when using node group in modifier for first time is defined in node group inputs panel .
+Note
+attribute domain and used to access attribute is defined by node input is connected to.
+### Warnings
+Nodes that show warning message in node editor will also show that message here.
+Custom warning messages can be created using Warning Node .
+### Output Attributes
+By connecting field socket to group output node, you can create custom Attributes from Field output of any node in node tree. domain of attribute must be specified in group node’s output properties. Note, this does not work with Instanced Data .
+attribute name used by default when using node group in modifier for first time is defined in node group outputs panel .
+This panel is hidden unless output node has attribute sockets.
+### Manage
+Displays options for managing data within node group,
+*Manage *panel can be hidden by disabling *Show Manage Panel *in modifier’s header options. This controls whether panel is shown for that specific modifier.
+To disable panel by default for new modifiers created from node group asset, toggle Show Manage Panel Geometry Nodes in node group’s properties.
+#### Bake
+**Bake Target **
+Specifies where baked data should be stored. This can be overridden for individual bakes.
+**Packed : **
+baked data is packed into .blend file. So no separate file is necessary.
+**Disk : **
+baked data is stored in separate directory on disk.
+**Bake Path **
+Location on disk where baked data for Simulation Zones and Bake Nodes are stored.
+See also
+Geometry Node Baking
+#### Named Attributes
+This panel displays information about all custom named attributes used by node group. More information is available in geometry nodes inspection page .
+## Move to Nodes Operator
+Creates new geometry node tree with name of current node tree with `.wrapper `appended to name. This operation moves all inputs and outputs from old modifier into new node group. In order for this operator to function, there **must **be Group Input **and **Group Output each with Geometry socket attached to node group. This action causes all *Output Attributes *to become *Internal Dependencies *utilizing Store Named Attribute Node . All modifier “inputs” will then also become inputs of newly created node group.
+This operator is useful to easily allow node tree to be reused in other trees or to mark it as Asset to be reused in other projects.
+- Geometry Nodes Modifier
+- Options
+- Warnings
+- Output Attributes
+- Manage
+- Bake
+- Named Attributes
+- Move to Nodes Operator
+
+---
+
+# Geometry Nodes
+- Introduction
+- Inspection
+- Attributes
+- Fields
+- Instances
+- Baking
+- Node-Based Tools
+- Gizmos
+## Node Types
+- Input Nodes
+- Constant
+- Boolean Node
+- Collection Node
+- Color Node
+- Image Node
+- Integer Node
+- Material Node
+- Object Node
+- Rotation Node
+- String Node
+- Value Node
+- Vector Node
+- Gizmo
+- Dial Gizmo
+- Linear Gizmo
+- Transform Gizmo
+- Import
+- CSV (.csv)
+- Wavefront (.obj)
+- Stanford PLY (.ply)
+- STL (.stl)
+- Text (.txt)
+- OpenVDB (.vdb)
+- Scene
+- 3D Cursor Node
+- Active Camera Node
+- Bone Info Node
+- Camera Info Node
+- Collection Info Node
+- Image Info Node
+- Is Viewport Node
+- Mouse Position Node
+- Object Info Node
+- Scene Time Node
+- Self Object Node
+- Viewport Transform Node
+- Output Nodes
+- Enable Output Node
+- Warning Node
+- Viewer Node
+- Attribute Nodes
+- Attribute Statistic Node
+- Domain Size Node
+- Blur Attribute Node
+- Capture Attribute Node
+- Remove Named Attribute Node
+- Store Named Attribute Node
+- Geometry Nodes
+- Read
+- ID Node
+- Index Node
+- Named Attribute Node
+- Normal Node
+- Position Node
+- Radius Node
+- Selection Node
+- Active Element Node
+- Sample
+- Geometry Proximity Node
+- Index of Nearest
+- Raycast Node
+- Sample Index Node
+- Sample Nearest Node
+- Write
+- Set Geometry Name Node
+- Set ID Node
+- Set Position Node
+- Set Selection Node
+- Material Nodes
+- Replace Material Node
+- Material Index Node
+- Material Selection Node
+- Set Material Node
+- Set Material Index Node
+- Operations
+- Bake Node
+- Bounding Box Node
+- Convex Hull Node
+- Delete Geometry Node
+- Duplicate Elements Node
+- Merge by Distance Node
+- Split To Instances Node
+- Sort Elements Node
+- Transform Geometry Node
+- Separate Components Node
+- Separate Geometry Node
+- Displace Geometry Node
+- Smooth Geometry Node
+- Geometry to Instance Node
+- Join Geometry Node
+- Geometry Input Node
+- Selection Nodes
+- Box Selection Node
+- Normal Selection Node
+- Sphere Selection Node
+- Curve Nodes
+- Read
+- Curve Handle Positions Node
+- Curve Length Node
+- Curve Tangent Node
+- Curve Tilt Node
+- Endpoint Selection Node
+- Handle Type Selection Node
+- Is Spline Cyclic Node
+- Spline Length Node
+- Spline Parameter Node
+- Spline Resolution Node
+- Sample
+- Sample Curve Node
+- Write
+- Set Curve Normal Node
+- Set Curve Radius Node
+- Set Curve Tilt Node
+- Set Handle Positions Node
+- Set Handle Type Node
+- Set Spline Cyclic Node
+- Set Spline Resolution Node
+- Set Spline Type Node
+- Operations
+- Curve to Mesh Node
+- Curve to Points Node
+- Curves to Grease Pencil Node
+- Deform Curves on Surface Node
+- Fill Curve Node
+- Fillet Curve Node
+- Interpolate Curves Node
+- Resample Curve Node
+- Reverse Curve Node
+- Subdivide Curve Node
+- Trim Curve Node
+- Primitives
+- Arc Node
+- Bézier Segment Node
+- Curve Circle Node
+- Curve Line Node
+- Spiral Node
+- Quadratic Bézier Node
+- Quadrilateral Node
+- Star Node
+- Topology
+- Curve of Point Node
+- Offset Point in Curve Node
+- Points of Curve Node
+- Grease Pencil Nodes
+- Read
+- Named Layer Selection Node
+- Write
+- Set Grease Pencil Color Node
+- Set Grease Pencil Depth Node
+- Set Grease Pencil Softness Node
+- Operations
+- Grease Pencil to Curves Node
+- Merge Layers Node
+- Instances Nodes
+- Instance on Points Node
+- Instances to Points Node
+- Realize Instances Node
+- Rotate Instances Node
+- Scale Instances Node
+- Translate Instances Node
+- Set Instance Transform Node
+- Instance Bounds Node
+- Instance Transform Node
+- Instance Rotation Node
+- Instance Scale Node
+- Instance on Elements Node
+- Randomize Transforms Node
+- Mesh Nodes
+- Read
+- Edge Angle Node
+- Edge Neighbors Node
+- Edge Vertices Node
+- Edges to Face Groups Node
+- Face Area Node
+- Face Group Boundaries Node
+- Face Neighbors Node
+- Face Set Node
+- Is Face Planar Node
+- Is Edge Smooth Node
+- Is Face Smooth Node
+- Mesh Island Node
+- Shortest Edge Paths Node
+- Vertex Neighbors Node
+- Edge Length Node
+- Face Corner Angle Node
+- Is Edge Boundary Node
+- Is Edge Loose Node
+- Is Edge Manifold Node
+- Is UV Split Node
+- Sample
+- Sample Nearest Surface Node
+- Sample UV Surface Node
+- Write
+- Set Face Set Node
+- Set Mesh Normal Node
+- Set Shade Smooth Node
+- Operations
+- Dual Mesh Node
+- Edge Paths to Curves Node
+- Edge Paths to Selection Node
+- Extrude Mesh Node
+- Flip Faces Node
+- Mesh Boolean Node
+- Mesh to Curve Node
+- Mesh to Density Grid Node
+- Mesh to Points Node
+- Mesh to SDF Grid Node
+- Mesh to Volume Node
+- Scale Elements Node
+- Split Edges Node
+- Subdivide Mesh Node
+- Subdivision Surface Node
+- Triangulate Node
+- Primitives
+- Cone Node
+- Cube Node
+- Cylinder Node
+- Grid Node
+- Icosphere Node
+- Mesh Circle Node
+- Mesh Line Node
+- UV Sphere Node
+- Topology
+- Corners of Edge Node
+- Corners of Face Node
+- Corners of Vertex Node
+- Edges of Corner Node
+- Edges of Vertex Node
+- Face of Corner Node
+- Offset Corner in Face Node
+- Vertex of Corner Node
+- UV
+- Pack UV Islands Node
+- UV Tangent Node
+- UV Unwrap Node
+- Point Nodes
+- Distribute Points in Volume
+- Distribute Points in Grid
+- Distribute Points on Faces
+- Points Node
+- Points to Curves Node
+- Points to SDF Grid
+- Points to Vertices Node
+- Points to Volume Node
+- Set Point Radius Node
+- Volume Nodes
+- Read
+- Get Named Grid Node
+- Grid Info Node
+- Voxel Index Node
+- Sample
+- Sample Grid Node
+- Sample Grid Index Node
+- Advect Grid Node
+- Grid Curl Node
+- Grid Divergence Node
+- Grid Gradient Node
+- Grid Laplacian Node
+- Write
+- Set Grid Background Node
+- Set Grid Transform Node
+- Store Named Grid Node
+- Operations
+- Grid to Mesh Node
+- Grid to Points Node
+- Volume to Mesh Node
+- SDF Grid Boolean Node
+- SDF Fillet Node
+- SDF Grid Laplacian Node
+- SDF Grid Mean Node
+- SDF Grid Mean Curvature Node
+- SDF Grid Median Node
+- SDF Grid Offset Node
+- Field to Grid Node
+- Clip Grid Node
+- Grid Dilate & Erode Node
+- Grid Mean Node
+- Grid Median Node
+- Prune Grid Node
+- Voxelize Grid Node
+- Primitives
+- Cube Grid Topology Node
+- Volume Cube Node
+- Simulation Zone
+- Color Utility Nodes
+- Blackbody Node
+- Gamma Node
+- Color Ramp Node
+- RGB Curves Node
+- Combine Color Node
+- Mix Color Node
+- Separate Color Node
+- Texture Nodes
+- Brick Texture Node
+- Checker Texture Node
+- Gabor Texture Node
+- Gradient Texture Node
+- Image Texture Node
+- Magic Texture Node
+- Musgrave Texture Node
+- Noise Texture Node
+- Voronoi Texture Node
+- Wave Texture Node
+- White Noise Texture Node
+- Utilities Nodes
+- Math
+- Bit Math Node
+- Boolean Math Node
+- Clamp Node
+- Compare Node
+- Float Curve
+- Float To Integer Node
+- Hash Value Node
+- Integer Math Node
+- Map Range Node
+- Math Node
+- Mix Node
+- Text
+- Format String Node
+- Join Strings Node
+- Match String Node
+- Replace String Node
+- Slice String Node
+- Find in String Node
+- String Length Node
+- String to Curves Node
+- String to Value Node
+- Value to String Node
+- Special Characters Node
+- Vector
+- Radial Tiling Node
+- Vector Curves Node
+- Vector Math Node
+- Vector Rotate Node
+- Combine XYZ Node
+- Mix Vector Node
+- Separate XYZ Node
+- Combine Cylindrical Node
+- Combine Spherical Node
+- Separate Cylindrical Node
+- Separate Spherical Node
+- Bundle
+- Combine Bundle Node
+- Separate Bundle Node
+- Get Bundle Item Node
+- Store Bundle Item Node
+- Join Bundle Node
+- Closure
+- Closure
+- Evaluate Closure
+- Field
+- Accumulate Field Node
+- Evaluate at Index Node
+- Evaluate on Domain Node
+- Field Average Node
+- Field Min & Max Node
+- Field Variance Node
+- Matrix
+- Combine Matrix Node
+- Combine Transform Node
+- Invert Matrix Node
+- Matrix Determinant Node
+- Matrix SVD Node
+- Multiply Matrices Node
+- Project Point Node
+- Separate Matrix Node
+- Separate Transform Node
+- Transform Direction Node
+- Transform Point Node
+- Transpose Matrix Node
+- Rotation
+- Align Rotation to Vector Node
+- Axes to Rotation Node
+- Axis Angle to Rotation Node
+- Euler to Rotation Node
+- Invert Rotation Node
+- Mix Rotation
+- Rotate Rotation Node
+- Rotate Vector Node
+- Rotation to Euler Node
+- Rotation to Quaternion Node
+- Quaternion to Rotation Node
+- For Each Geometry Element Zone
+- Index Switch Node
+- Menu Switch Node
+- Random Value Node
+- Repeat Zone
+- Switch Node
+- Random Rotation Node
+- Deprecated
+- Align Euler to Vector Node
+- Rotate Euler Node
+- Group
+- Generate Nodes
+- Array Node
+- Curve to Tube Node
+- Scatter on Surface Node
+- Hair Nodes
+- Deformation
+- Blend Hair Curves
+- Displace Hair Curves
+- Frizz Hair Curves
+- Hair Curves Noise
+- Roll Hair Curves
+- Rotate Hair Curves
+- Shrinkwrap Hair Curves
+- Smooth Hair Curves
+- Straighten Hair Curves
+- Trim Hair Curves
+- Generation
+- Duplicate Hair Curves
+- Generate Hair Curves
+- Interpolate Hair Curves
+- Guides
+- Braid Hair Curves
+- Clump Hair Curves
+- Create Guide Index Map
+- Curl Hair Curves
+- Read
+- Curve Info
+- Curve Root
+- Curve Segment
+- Curve Tip
+- Hair Attachment Info
+- Utility
+- Attach Hair Curves to Surface
+- Redistribute Curve Points
+- Restore Curve Segment Length
+- Write
+- Set Hair Curve Profile
+- Normals Nodes
+- Smooth By Angle Node Group
+Tip
+Asset Catalogs that contain geometry node groups will also appear in add menu.
+- Geometry Nodes
+- Node Types
