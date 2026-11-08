@@ -18,8 +18,6 @@ export class SdfExportModal extends HTMLElement {
 
   // Mesh extraction state
   private isExtracting = false;
-  private extractionProgress = 0;
-  private statusText = '';
   private extractor = new MeshExtractor();
 
   connectedCallback() {
@@ -45,8 +43,6 @@ export class SdfExportModal extends HTMLElement {
     this.style.display = 'none';
     this.extractor.terminate();
     this.isExtracting = false;
-    this.extractionProgress = 0;
-    this.statusText = '';
   }
 
   private render() {
@@ -510,7 +506,7 @@ export class SdfExportModal extends HTMLElement {
 
       if (format === 'glb') {
         const rootColor = this.sceneStore.tree.root.material?.color || '#e2e8f0';
-        const blob = exportGLB(result.positions, result.normals, 'SDF_Model', rootColor);
+        const blob = await exportGLB(result.positions, result.normals, rootColor);
         downloadBlob(blob, `sdf_studio_model_${resolution}res.glb`);
       } else {
         const objText = exportOBJ(result.positions, result.normals, 'SDF_Model');
