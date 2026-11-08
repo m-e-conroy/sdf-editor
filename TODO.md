@@ -40,6 +40,7 @@
 | **M6.5** | GPU UniformPacker Mapping & Array Clamping Tests                     | `test-engineer`      | ✅ Complete | Primitive types, CSG ops, modifiers & MAX_GPU_NODES (32) clamping  |
 | **M6.6** | Mesh & Shader Exporter Validation Tests                              | `test-engineer`      | ✅ Complete | OBJ indices, GLB binary chunk alignment, and Shadertoy GLSL output |
 | **M6.7** | Milestone 6 Verification Gate & Test Execution                       | `test-engineer`      | ✅ Complete | 67 tests passing (300ms), 0 type errors, clean production build    |
+| **M6.8** | Centered Floating Export Modal Dialog & Backdrop UX                  | `frontend-developer` | ✅ Complete | Fixed Light DOM :host bug, centered dialog, backdrop blur & Esc    |
 
 ---
 

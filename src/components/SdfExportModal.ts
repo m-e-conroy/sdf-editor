@@ -20,21 +20,43 @@ export class SdfExportModal extends HTMLElement {
   private isExtracting = false;
   private extractor = new MeshExtractor();
 
+  private onOpenExportModalBound = (e: Event) => {
+    const customEvent = e as CustomEvent<{ tab?: ExportModalTab }>;
+    this.open(customEvent.detail?.tab || 'mesh');
+  };
+
+  private onKeyDownBound = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && this.isOpen) {
+      e.preventDefault();
+      this.close();
+    }
+  };
+
+  constructor() {
+    super();
+    this.style.display = 'none';
+  }
+
   connectedCallback() {
+    this.style.display = 'none';
     this.render();
     this.setupListeners();
 
     // Listen for global open requests from menu bar
-    window.addEventListener('open-export-modal', ((e: CustomEvent<{ tab?: ExportModalTab }>) => {
-      this.open(e.detail?.tab || 'mesh');
-    }) as EventListener);
+    window.addEventListener('open-export-modal', this.onOpenExportModalBound);
+    window.addEventListener('keydown', this.onKeyDownBound);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('open-export-modal', this.onOpenExportModalBound);
+    window.removeEventListener('keydown', this.onKeyDownBound);
+    this.extractor.terminate();
   }
 
   public open(tab: ExportModalTab = 'mesh') {
     this.activeTab = tab;
     this.isOpen = true;
     this.style.display = 'flex';
-    this.render();
     this.updateTabContent();
   }
 
@@ -48,37 +70,51 @@ export class SdfExportModal extends HTMLElement {
   private render() {
     this.innerHTML = `
       <style>
-        :host {
+        sdf-export-modal {
           display: none;
           position: fixed;
-          top: 0;
-          left: 0;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 10000;
+          pointer-events: auto;
+        }
+
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
           width: 100vw;
           height: 100vh;
           background: rgba(10, 10, 12, 0.72);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          z-index: 1000;
+          z-index: 10000;
+          display: flex;
           align-items: center;
           justify-content: center;
           user-select: none;
+          padding: 20px;
+          box-sizing: border-box;
         }
 
         .modal-dialog {
           width: 680px;
           max-width: 92vw;
+          max-height: 85vh;
           background: var(--bg-panel);
           border: 1px solid var(--border-subtle);
           border-radius: 8px;
-          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
+          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          animation: modalPop 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: modalPop 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          position: relative;
+          z-index: 10001;
         }
 
         @keyframes modalPop {
-          0% { opacity: 0; transform: scale(0.96) translateY(12px); }
+          0% { opacity: 0; transform: scale(0.95) translateY(12px); }
           100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
@@ -89,6 +125,7 @@ export class SdfExportModal extends HTMLElement {
           padding: 12px 18px;
           background: var(--bg-panel-elevated);
           border-bottom: 1px solid var(--border-subtle);
+          flex-shrink: 0;
         }
 
         .modal-title {
@@ -125,6 +162,7 @@ export class SdfExportModal extends HTMLElement {
           border-bottom: 1px solid var(--border-subtle);
           padding: 0 16px;
           gap: 6px;
+          flex-shrink: 0;
         }
 
         .tab-btn {
@@ -156,6 +194,8 @@ export class SdfExportModal extends HTMLElement {
           min-height: 280px;
           display: flex;
           flex-direction: column;
+          overflow-y: auto;
+          flex: 1;
         }
 
         .tab-pane {
@@ -267,6 +307,7 @@ export class SdfExportModal extends HTMLElement {
           justify-content: flex-end;
           gap: 10px;
           margin-top: 14px;
+          flex-shrink: 0;
         }
 
         .btn-primary {
@@ -320,91 +361,93 @@ export class SdfExportModal extends HTMLElement {
         }
       </style>
 
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <div class="modal-title">
-            <span>📦</span> Export Asset & Scene Code
-          </div>
-          <button class="modal-close-btn" id="btn-close-modal" title="Close (Esc)">✕</button>
-        </div>
-
-        <div class="modal-tabs">
-          <button class="tab-btn active" data-tab="mesh">💎 3D Mesh (.OBJ / .GLB)</button>
-          <button class="tab-btn" data-tab="shader">⚡ GLSL Shader (Shadertoy)</button>
-          <button class="tab-btn" data-tab="project">📄 Project (.sdf.json)</button>
-        </div>
-
-        <div class="modal-body">
-          <!-- MESH TAB -->
-          <div class="tab-pane active" id="pane-mesh">
-            <div class="form-row">
-              <label class="form-label">Mesh Extraction Resolution</label>
-              <select class="form-select" id="select-resolution">
-                <option value="32">Draft (32³ Grid - Instant)</option>
-                <option value="64" selected>Standard (64³ Grid - Balanced, Recommended)</option>
-                <option value="128">High (128³ Grid - Fine Edges & Creases)</option>
-              </select>
+      <div class="modal-backdrop" id="modal-backdrop">
+        <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+          <div class="modal-header">
+            <div class="modal-title" id="modal-title">
+              <span>📦</span> Export Asset & Scene Code
             </div>
+            <button class="modal-close-btn" id="btn-close-modal" title="Close (Esc)" aria-label="Close dialog">✕</button>
+          </div>
 
-            <div class="form-row">
-              <label class="form-label">Export Format</label>
-              <div class="radio-group">
-                <label class="radio-label">
-                  <input type="radio" name="mesh-format" value="obj" checked />
-                  <span>Wavefront .OBJ (Standard ASCII)</span>
-                </label>
-                <label class="radio-label">
-                  <input type="radio" name="mesh-format" value="glb" />
-                  <span>Binary glTF .GLB (Embedded Materials)</span>
-                </label>
+          <div class="modal-tabs">
+            <button class="tab-btn active" data-tab="mesh">💎 3D Mesh (.OBJ / .GLB)</button>
+            <button class="tab-btn" data-tab="shader">⚡ GLSL Shader (Shadertoy)</button>
+            <button class="tab-btn" data-tab="project">📄 Project (.sdf.json)</button>
+          </div>
+
+          <div class="modal-body">
+            <!-- MESH TAB -->
+            <div class="tab-pane active" id="pane-mesh">
+              <div class="form-row">
+                <label class="form-label">Mesh Extraction Resolution</label>
+                <select class="form-select" id="select-resolution">
+                  <option value="32">Draft (32³ Grid - Instant)</option>
+                  <option value="64" selected>Standard (64³ Grid - Balanced, Recommended)</option>
+                  <option value="128">High (128³ Grid - Fine Edges & Creases)</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label">Export Format</label>
+                <div class="radio-group">
+                  <label class="radio-label">
+                    <input type="radio" name="mesh-format" value="obj" checked />
+                    <span>Wavefront .OBJ (Standard ASCII)</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="mesh-format" value="glb" />
+                    <span>Binary glTF .GLB (Embedded Materials)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label class="form-label" id="progress-status-label">Extraction Status: Ready</label>
+                <div class="progress-container">
+                  <div class="progress-bar" id="mesh-progress-bar"></div>
+                  <div class="progress-text" id="mesh-progress-text">0%</div>
+                </div>
+              </div>
+
+              <div class="action-btn-row">
+                <button class="btn-secondary" id="btn-cancel-mesh">Cancel</button>
+                <button class="btn-primary" id="btn-extract-mesh">
+                  <span>⚡</span> Generate & Download Mesh
+                </button>
               </div>
             </div>
 
-            <div class="form-row">
-              <label class="form-label" id="progress-status-label">Extraction Status: Ready</label>
-              <div class="progress-container">
-                <div class="progress-bar" id="mesh-progress-bar"></div>
-                <div class="progress-text" id="mesh-progress-text">0%</div>
+            <!-- SHADER TAB -->
+            <div class="tab-pane" id="pane-shader">
+              <div class="info-card">
+                Self-contained Shadertoy fragment shader with raymarching loop, smooth polynomial CSG booleans, and camera controls.
+              </div>
+
+              <div class="code-preview-box" id="shader-code-preview">// Generating shader code...</div>
+
+              <div class="action-btn-row">
+                <button class="btn-secondary" id="btn-copy-shader">📋 Copy to Clipboard</button>
+                <button class="btn-primary" id="btn-download-shader">
+                  <span>💾</span> Download .glsl File
+                </button>
               </div>
             </div>
 
-            <div class="action-btn-row">
-              <button class="btn-secondary" id="btn-cancel-mesh">Cancel</button>
-              <button class="btn-primary" id="btn-extract-mesh">
-                <span>⚡</span> Generate & Download Mesh
-              </button>
-            </div>
-          </div>
+            <!-- PROJECT JSON TAB -->
+            <div class="tab-pane" id="pane-project">
+              <div class="info-card">
+                Save the complete procedural CSG AST scene, hierarchy, transforms, materials, and modifier configs into a standard <code>.sdf.json</code> document.
+              </div>
 
-          <!-- SHADER TAB -->
-          <div class="tab-pane" id="pane-shader">
-            <div class="info-card">
-              Self-contained Shadertoy fragment shader with raymarching loop, smooth polynomial CSG booleans, and camera controls.
-            </div>
+              <div class="code-preview-box" id="project-json-preview">// Loading JSON document...</div>
 
-            <div class="code-preview-box" id="shader-code-preview">// Generating shader code...</div>
-
-            <div class="action-btn-row">
-              <button class="btn-secondary" id="btn-copy-shader">📋 Copy to Clipboard</button>
-              <button class="btn-primary" id="btn-download-shader">
-                <span>💾</span> Download .glsl File
-              </button>
-            </div>
-          </div>
-
-          <!-- PROJECT JSON TAB -->
-          <div class="tab-pane" id="pane-project">
-            <div class="info-card">
-              Save the complete procedural CSG AST scene, hierarchy, transforms, materials, and modifier configs into a standard <code>.sdf.json</code> document.
-            </div>
-
-            <div class="code-preview-box" id="project-json-preview">// Loading JSON document...</div>
-
-            <div class="action-btn-row">
-              <button class="btn-secondary" id="btn-copy-json">📋 Copy JSON</button>
-              <button class="btn-primary" id="btn-download-json">
-                <span>💾</span> Save Project (.sdf.json)
-              </button>
+              <div class="action-btn-row">
+                <button class="btn-secondary" id="btn-copy-json">📋 Copy JSON</button>
+                <button class="btn-primary" id="btn-download-json">
+                  <span>💾</span> Save Project (.sdf.json)
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -413,21 +456,23 @@ export class SdfExportModal extends HTMLElement {
   }
 
   private setupListeners() {
-    // Backdrop click dismisses
-    this.addEventListener('click', (e) => {
-      if (e.target === this) this.close();
-    });
-
-    // Close button
-    this.querySelector('#btn-close-modal')?.addEventListener('click', () => this.close());
-    this.querySelector('#btn-cancel-mesh')?.addEventListener('click', () => this.close());
-
-    // Global Esc listener
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isOpen) {
+    // Backdrop click dismisses modal when clicking outside dialog
+    const backdrop = this.querySelector('#modal-backdrop');
+    backdrop?.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
         this.close();
       }
     });
+
+    this.addEventListener('click', (e) => {
+      if (e.target === this) {
+        this.close();
+      }
+    });
+
+    // Close button & Cancel button
+    this.querySelector('#btn-close-modal')?.addEventListener('click', () => this.close());
+    this.querySelector('#btn-cancel-mesh')?.addEventListener('click', () => this.close());
 
     // Tab buttons
     this.querySelectorAll('.tab-btn').forEach((btn) => {
