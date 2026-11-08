@@ -30,7 +30,8 @@ export class CSGTree {
           height: 0.8,
           radiusMajor: 0.7,
           radiusMinor: 0.25,
-          thickness: 0.08
+          thickness: 0.08,
+          radii: [0.8, 0.6, 0.5]
         }
       },
       csg: {

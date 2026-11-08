@@ -223,6 +223,18 @@ describe('UniformPacker', () => {
       expect(packed.dimensions[0].y).toBeCloseTo(0.6);
       expect(packed.dimensions[0].z).toBeCloseTo(0.12);
     });
+
+    it('should pack ellipsoid radii into dimensions.xyz', () => {
+      const node = CSGTree.createDefaultNode('ellipsoid');
+      node.primitive.dimensions.radii = [1.2, 0.7, 0.4];
+      tree.root.children = [node];
+
+      const packed = UniformPacker.pack(tree);
+      expect(packed.types[0]).toBe(8);
+      expect(packed.dimensions[0].x).toBeCloseTo(1.2);
+      expect(packed.dimensions[0].y).toBeCloseTo(0.7);
+      expect(packed.dimensions[0].z).toBeCloseTo(0.4);
+    });
   });
 
   describe('Materials Packing', () => {

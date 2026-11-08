@@ -43,6 +43,7 @@
 | **M6.8** | Centered Floating Export Modal Dialog & Backdrop UX                  | `frontend-developer` | ✅ Complete | Fixed Light DOM :host bug, centered dialog, backdrop blur & Esc    |
 | **M6.9** | 3D Transform Gizmo Mode Switcher (Move, Rotate, Scale)               | `frontend-developer` | ✅ Complete | Viewport HUD segmented buttons, Inspector pills, G/W, R/E, S keys  |
 | **M6.10**| Viewport HUD & Inspector Light Theme Adaptation                      | `frontend-developer` | ✅ Complete | Dynamic `[data-theme="light"]` styling for HUD toolbar & gizmo buttons |
+| **M6.11**| Ellipsoid & Non-Uniform Primitive Packing & GLSL Robustness         | `game-developer`     | ✅ Complete | Fixed radii packing (dim.xyz), safe denominator bounds & Inspector controls |
 
 ---
 

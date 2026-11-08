@@ -83,6 +83,13 @@ export class UniformPacker {
           dimVec = new THREE.Vector4(dims.height ?? 1.0, 0, 0, 0);
         } else if (node.primitive.type === 'hexagonal_prism' || node.primitive.type === 'triangular_prism') {
           dimVec = new THREE.Vector4(dims.radius ?? 0.6, dims.height ?? 0.7, 0, 0);
+        } else if (node.primitive.type === 'ellipsoid' || node.primitive.type === 'superellipsoid') {
+          const r = dims.radii ?? (dims.size as [number, number, number]) ?? [0.8, 0.6, 0.5];
+          dimVec = new THREE.Vector4(r[0] || 0.8, r[1] || 0.6, r[2] || 0.5, 0);
+        } else if (node.primitive.type === 'cone') {
+          dimVec = new THREE.Vector4(dims.height ?? 0.8, dims.baseRadius ?? dims.radius ?? 0.6, dims.topRadius ?? 0.0, 0);
+        } else if (node.primitive.type === 'hemisphere' || node.primitive.type === 'tetrahedron' || node.primitive.type === 'octahedron') {
+          dimVec = new THREE.Vector4(dims.radius ?? 0.8, 0, 0, 0);
         } else {
           dimVec = new THREE.Vector4(dims.radius ?? 0.8, dims.height ?? 0.8, 0, 0);
         }

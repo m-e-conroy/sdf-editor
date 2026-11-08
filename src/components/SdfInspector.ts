@@ -477,6 +477,35 @@ export class SdfInspector extends HTMLElement {
           <input type="range" id="dim-torus-r" class="range-slider" min="0.05" max="0.8" step="0.02" value="${dims.radiusMinor ?? 0.25}" />
         </div>
       `;
+    } else if (type === 'ellipsoid' || type === 'superellipsoid') {
+      const r = dims.radii ?? (dims.size as [number, number, number]) ?? [0.8, 0.6, 0.5];
+      return `
+        <div class="field-row">
+          <span class="field-label">Radii (X/Y/Z):</span>
+          <div class="vector-group">
+            <div class="scrubber-box"><input class="scrubber-input" id="dim-radii-x" value="${r[0].toFixed(2)}" /></div>
+            <div class="scrubber-box"><input class="scrubber-input" id="dim-radii-y" value="${r[1].toFixed(2)}" /></div>
+            <div class="scrubber-box"><input class="scrubber-input" id="dim-radii-z" value="${r[2].toFixed(2)}" /></div>
+          </div>
+        </div>
+      `;
+    } else if (type === 'cone') {
+      return `
+        <div class="field-row">
+          <span class="field-label">Base Radius:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-base-radius" class="range-slider" min="0.1" max="2" step="0.05" value="${dims.baseRadius ?? dims.radius ?? 0.6}" />
+            <span class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.baseRadius ?? dims.radius ?? 0.6).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="field-row">
+          <span class="field-label">Height:</span>
+          <div class="slider-row">
+            <input type="range" id="dim-height" class="range-slider" min="0.1" max="3" step="0.05" value="${dims.height ?? 0.8}" />
+            <span class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(dims.height ?? 0.8).toFixed(2)}</span>
+          </div>
+        </div>
+      `;
     } else if (type === 'pipe') {
       return `
         <div class="field-row">
@@ -686,6 +715,88 @@ export class SdfInspector extends HTMLElement {
         primitive: {
           ...node.primitive,
           dimensions: { ...node.primitive.dimensions, thickness: parseFloat(dimThick.value) }
+        }
+      });
+    });
+
+    // Radii (X/Y/Z) for Ellipsoid / Superellipsoid
+    const radiiX = this.querySelector('#dim-radii-x') as HTMLInputElement;
+    const radiiY = this.querySelector('#dim-radii-y') as HTMLInputElement;
+    const radiiZ = this.querySelector('#dim-radii-z') as HTMLInputElement;
+    if (radiiX && radiiY && radiiZ) {
+      const updateRadii = () => {
+        const rx = Math.max(0.01, parseFloat(radiiX.value) || 0.8);
+        const ry = Math.max(0.01, parseFloat(radiiY.value) || 0.6);
+        const rz = Math.max(0.01, parseFloat(radiiZ.value) || 0.5);
+        this.sceneStore.updateNode(node.id, {
+          primitive: {
+            ...node.primitive,
+            dimensions: { ...node.primitive.dimensions, radii: [rx, ry, rz] }
+          }
+        });
+      };
+      [radiiX, radiiY, radiiZ].forEach((input) => input.addEventListener('change', updateRadii));
+    }
+
+    // Box Size (X/Y/Z)
+    const boxX = this.querySelector('#dim-box-x') as HTMLInputElement;
+    const boxY = this.querySelector('#dim-box-y') as HTMLInputElement;
+    const boxZ = this.querySelector('#dim-box-z') as HTMLInputElement;
+    if (boxX && boxY && boxZ) {
+      const updateBoxSize = () => {
+        const sx = Math.max(0.01, parseFloat(boxX.value) || 0.7);
+        const sy = Math.max(0.01, parseFloat(boxY.value) || 0.7);
+        const sz = Math.max(0.01, parseFloat(boxZ.value) || 0.7);
+        this.sceneStore.updateNode(node.id, {
+          primitive: {
+            ...node.primitive,
+            dimensions: { ...node.primitive.dimensions, size: [sx, sy, sz] }
+          }
+        });
+      };
+      [boxX, boxY, boxZ].forEach((input) => input.addEventListener('change', updateBoxSize));
+    }
+
+    // Torus Major / Minor Radii
+    const torusR = this.querySelector('#dim-torus-R') as HTMLInputElement;
+    torusR?.addEventListener('input', () => {
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, radiusMajor: parseFloat(torusR.value) }
+        }
+      });
+    });
+
+    const torusr = this.querySelector('#dim-torus-r') as HTMLInputElement;
+    torusr?.addEventListener('input', () => {
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, radiusMinor: parseFloat(torusr.value) }
+        }
+      });
+    });
+
+    // Cone Base Radius
+    const dimBaseRadius = this.querySelector('#dim-base-radius') as HTMLInputElement;
+    dimBaseRadius?.addEventListener('input', () => {
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, baseRadius: parseFloat(dimBaseRadius.value) }
+        }
+      });
+    });
+
+    // Generic Height / Radius slider
+    const dimGeneric = this.querySelector('#dim-generic') as HTMLInputElement;
+    dimGeneric?.addEventListener('input', () => {
+      const val = parseFloat(dimGeneric.value);
+      this.sceneStore.updateNode(node.id, {
+        primitive: {
+          ...node.primitive,
+          dimensions: { ...node.primitive.dimensions, height: val, radius: val }
         }
       });
     });

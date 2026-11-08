@@ -68,17 +68,21 @@ float sdHemisphere(vec3 p, float r) {
 
 // 11. Ellipsoid (Bound)
 float sdEllipsoid(vec3 p, vec3 r) {
-    float k0 = length(p / r);
-    float k1 = length(p / (r * r));
-    return k0 * (k0 - 1.0) / k1;
+    vec3 safeR = max(abs(r), vec3(0.001));
+    float k0 = length(p / safeR);
+    float k1 = length(p / (safeR * safeR));
+    return k0 * (k0 - 1.0) / max(k1, 0.0001);
 }
 
 // 12. Superellipsoid (Bound via generalized Lp norm)
 float sdSuperellipsoid(vec3 p, vec3 r, float e1, float e2) {
-    vec3 q = abs(p / r);
-    float t1 = pow(pow(q.x, 2.0 / e2) + pow(q.y, 2.0 / e2), e2 / e1);
-    float val = pow(t1 + pow(q.z, 2.0 / e1), e1 * 0.5) - 1.0;
-    return val * min(r.x, min(r.y, r.z));
+    vec3 safeR = max(abs(r), vec3(0.001));
+    vec3 q = abs(p / safeR);
+    float safeE1 = max(e1, 0.001);
+    float safeE2 = max(e2, 0.001);
+    float t1 = pow(pow(q.x, 2.0 / safeE2) + pow(q.y, 2.0 / safeE2), safeE2 / safeE1);
+    float val = pow(t1 + pow(q.z, 2.0 / safeE1), safeE1 * 0.5) - 1.0;
+    return val * min(safeR.x, min(safeR.y, safeR.z));
 }
 
 // 13. Square Pyramid (Exact)
