@@ -113,15 +113,29 @@ export class RaymarchRenderer {
     });
 
     window.addEventListener('keydown', (e) => {
-      if (document.activeElement?.tagName === 'INPUT') return;
-      if (e.key === 'g' || e.key === 'G') {
-        this.transformControls.setMode('translate');
-      } else if (e.key === 'r' || e.key === 'R') {
-        this.transformControls.setMode('rotate');
+      const target = e.target as HTMLElement | null;
+      const isEditing = target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      );
+      if (isEditing) return;
+
+      if (e.key === 'g' || e.key === 'G' || e.key === 'w' || e.key === 'W') {
+        this.setGizmoMode('translate');
+      } else if (e.key === 'r' || e.key === 'R' || e.key === 'e' || e.key === 'E') {
+        this.setGizmoMode('rotate');
       } else if (e.key === 's' || e.key === 'S') {
-        this.transformControls.setMode('scale');
+        this.setGizmoMode('scale');
       }
     });
+
+    window.addEventListener('set-gizmo-mode', ((e: CustomEvent<{ mode: 'translate' | 'rotate' | 'scale' }>) => {
+      if (e.detail?.mode) {
+        this.setGizmoMode(e.detail.mode);
+      }
+    }) as EventListener);
   }
 
   private setupStoreListeners(): void {
@@ -277,6 +291,11 @@ export class RaymarchRenderer {
 
   public setGizmoMode(mode: 'translate' | 'rotate' | 'scale'): void {
     this.transformControls.setMode(mode);
+    window.dispatchEvent(new CustomEvent('gizmo-mode-changed', { detail: { mode } }));
+  }
+
+  public getGizmoMode(): 'translate' | 'rotate' | 'scale' {
+    return (this.transformControls as any).mode || 'translate';
   }
 
   public start(getTheme: () => 'dark' | 'light'): void {

@@ -8,6 +8,8 @@ interface LookdevRenderer extends RaymarchRenderer {
   toggleShadows(enable?: boolean): void;
   toggleAO(enable?: boolean): void;
   focusOnSelected(): void;
+  setGizmoMode(mode: 'translate' | 'rotate' | 'scale'): void;
+  getGizmoMode(): 'translate' | 'rotate' | 'scale';
 }
 
 export class SdfViewport extends HTMLElement {
@@ -17,6 +19,7 @@ export class SdfViewport extends HTMLElement {
   private sceneStore: SceneStore = SceneStore.getInstance();
   private onSceneChangedBound: () => void = () => {};
   private onKeyDownBound: (e: KeyboardEvent) => void = () => {};
+  private onGizmoModeChangedBound: (e: Event) => void = () => {};
 
   // HUD state
   private shadowsActive = true;
@@ -75,7 +78,7 @@ export class SdfViewport extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: rgba(20, 22, 28, 0.76);
+          background: rgba(20, 22, 28, 0.78);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.08);
@@ -87,6 +90,124 @@ export class SdfViewport extends HTMLElement {
           color: #e2e8f0;
           pointer-events: auto;
           user-select: none;
+          transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        [data-theme="light"] .viewport-hud {
+          background: rgba(255, 255, 255, 0.88);
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
+          color: #18181b;
+        }
+
+        .gizmo-mode-group {
+          display: inline-flex;
+          align-items: center;
+          background: rgba(12, 14, 18, 0.78);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 5px;
+          padding: 2px;
+          gap: 2px;
+          transition: background 0.2s ease, border-color 0.2s ease;
+        }
+
+        [data-theme="light"] .gizmo-mode-group {
+          background: rgba(230, 232, 238, 0.9);
+          border: 1px solid rgba(0, 0, 0, 0.09);
+        }
+
+        .gizmo-btn {
+          appearance: none;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #94a3b8;
+          border-radius: 3.5px;
+          padding: 3px 6px;
+          font-family: inherit;
+          font-size: 11px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          cursor: pointer;
+          transition: all 0.14s cubic-bezier(0.4, 0, 0.2, 1);
+          white-space: nowrap;
+        }
+
+        .gizmo-btn .gizmo-icon {
+          flex-shrink: 0;
+          stroke: currentColor;
+          transition: transform 0.15s ease;
+        }
+
+        .gizmo-btn .gizmo-label {
+          font-size: 11px;
+          letter-spacing: -0.01em;
+        }
+
+        .gizmo-btn .gizmo-kbd {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 9px;
+          font-weight: 600;
+          padding: 1px 3.5px;
+          background: rgba(255, 255, 255, 0.08);
+          color: #64748b;
+          border-radius: 2px;
+          line-height: 1;
+          transition: all 0.14s ease;
+        }
+
+        .gizmo-btn:hover:not(.active) {
+          background: rgba(255, 255, 255, 0.07);
+          color: #f1f5f9;
+          border-color: rgba(255, 255, 255, 0.06);
+        }
+
+        .gizmo-btn:hover:not(.active) .gizmo-kbd {
+          color: #94a3b8;
+          background: rgba(255, 255, 255, 0.12);
+        }
+
+        [data-theme="light"] .gizmo-btn {
+          color: #475569;
+        }
+
+        [data-theme="light"] .gizmo-btn:hover:not(.active) {
+          background: rgba(0, 0, 0, 0.06);
+          color: #0f172a;
+          border-color: rgba(0, 0, 0, 0.06);
+        }
+
+        [data-theme="light"] .gizmo-btn .gizmo-kbd {
+          background: rgba(0, 0, 0, 0.07);
+          color: #475569;
+        }
+
+        [data-theme="light"] .gizmo-btn:hover:not(.active) .gizmo-kbd {
+          background: rgba(0, 0, 0, 0.12);
+          color: #0f172a;
+        }
+
+        .gizmo-btn.active {
+          background: linear-gradient(180deg, #ea7600 0%, #cf6300 100%);
+          color: #ffffff;
+          border: 1px solid rgba(255, 185, 95, 0.45);
+          box-shadow: 0 0 10px rgba(234, 118, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        }
+
+        .gizmo-btn.active .gizmo-icon {
+          stroke: #ffffff;
+          filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+          transform: scale(1.05);
+        }
+
+        .gizmo-btn.active .gizmo-kbd {
+          background: rgba(0, 0, 0, 0.32);
+          color: #fed7aa;
+        }
+
+        .gizmo-btn:active {
+          transform: scale(0.96);
         }
 
         .hud-group {
@@ -118,11 +239,37 @@ export class SdfViewport extends HTMLElement {
           box-shadow: 0 0 0 1px #3b82f6;
         }
 
+        .hud-select option {
+          background: #1e222b;
+          color: #f1f5f9;
+        }
+
+        [data-theme="light"] .hud-select {
+          background: rgba(240, 240, 244, 0.95);
+          color: #18181b;
+          border: 1px solid rgba(0, 0, 0, 0.14);
+        }
+
+        [data-theme="light"] .hud-select:hover {
+          background: #ffffff;
+          border-color: rgba(0, 0, 0, 0.25);
+        }
+
+        [data-theme="light"] .hud-select option {
+          background: #ffffff;
+          color: #18181b;
+        }
+
         .hud-divider {
           width: 1px;
           height: 18px;
           background: rgba(255, 255, 255, 0.12);
           margin: 0 2px;
+          transition: background 0.2s ease;
+        }
+
+        [data-theme="light"] .hud-divider {
+          background: rgba(0, 0, 0, 0.12);
         }
 
         .hud-btn, .hud-toggle {
@@ -161,7 +308,76 @@ export class SdfViewport extends HTMLElement {
           background: rgba(59, 130, 246, 0.32);
           color: #ffffff;
         }
+
+        [data-theme="light"] .hud-btn,
+        [data-theme="light"] .hud-toggle {
+          background: rgba(240, 240, 244, 0.9);
+          color: #334155;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+        }
+
+        [data-theme="light"] .hud-btn:hover {
+          background: #ffffff;
+          color: #0f172a;
+          border-color: rgba(0, 0, 0, 0.24);
+        }
+
+        [data-theme="light"] .hud-toggle:hover:not(.active) {
+          background: #ffffff;
+          color: #0f172a;
+          border-color: rgba(0, 0, 0, 0.24);
+        }
+
+        [data-theme="light"] .hud-toggle.active {
+          background: rgba(37, 99, 235, 0.12);
+          color: #1d4ed8;
+          border-color: rgba(37, 99, 235, 0.45);
+        }
+
+        [data-theme="light"] .hud-toggle.active:hover {
+          background: rgba(37, 99, 235, 0.2);
+          color: #1e40af;
+          border-color: rgba(37, 99, 235, 0.6);
+        }
       </style>
+
+      <!-- 3D Transform Gizmo Mode Switcher -->
+      <div class="hud-group gizmo-mode-group" role="radiogroup" aria-label="Transform Gizmo Mode">
+        <button id="gizmo-mode-translate" class="gizmo-btn active" data-mode="translate" title="Translate / Move (G or W)">
+          <svg class="gizmo-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 1v14M1 8h14"/>
+            <path d="M5.5 3.5L8 1l2.5 2.5"/>
+            <path d="M5.5 12.5L8 15l2.5-2.5"/>
+            <path d="M3.5 5.5L1 8l2.5 2.5"/>
+            <path d="M12.5 5.5L15 8l-2.5 2.5"/>
+          </svg>
+          <span class="gizmo-label">Move</span>
+          <span class="gizmo-kbd">G</span>
+        </button>
+
+        <button id="gizmo-mode-rotate" class="gizmo-btn" data-mode="rotate" title="Rotate (R or E)">
+          <svg class="gizmo-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13.5 8a5.5 5.5 0 0 1-9.3 4M2.5 8a5.5 5.5 0 0 1 9.3-4"/>
+            <polyline points="14 4 14 8 10 8"/>
+            <polyline points="2 12 2 8 6 8"/>
+          </svg>
+          <span class="gizmo-label">Rotate</span>
+          <span class="gizmo-kbd">R</span>
+        </button>
+
+        <button id="gizmo-mode-scale" class="gizmo-btn" data-mode="scale" title="Scale (S)">
+          <svg class="gizmo-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="9" width="5" height="5" rx="1" fill="currentColor" fill-opacity="0.25"/>
+            <rect x="9" y="2" width="5" height="5" rx="1"/>
+            <path d="M6 10L10 6"/>
+            <path d="M7 6h3v3"/>
+          </svg>
+          <span class="gizmo-label">Scale</span>
+          <span class="gizmo-kbd">S</span>
+        </button>
+      </div>
+
+      <div class="hud-divider"></div>
 
       <!-- Lookdev Shading Preset Switcher -->
       <div class=\"hud-group\">
@@ -247,6 +463,30 @@ export class SdfViewport extends HTMLElement {
     btnFocus?.addEventListener('click', () => {
       this.renderer?.focusOnSelected();
     });
+
+    // 3D Transform Gizmo Mode Switcher
+    const gizmoBtns = this.hudElement.querySelectorAll('.gizmo-btn');
+    gizmoBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = (btn as HTMLElement).dataset.mode as 'translate' | 'rotate' | 'scale';
+        if (mode) {
+          this.renderer?.setGizmoMode(mode);
+        }
+      });
+    });
+
+    const updateActiveGizmoBtn = (mode: string) => {
+      gizmoBtns.forEach((btn) => {
+        btn.classList.toggle('active', (btn as HTMLElement).dataset.mode === mode);
+      });
+    };
+
+    this.onGizmoModeChangedBound = ((e: CustomEvent<{ mode: string }>) => {
+      if (e.detail?.mode) {
+        updateActiveGizmoBtn(e.detail.mode);
+      }
+    }) as EventListener;
+    window.addEventListener('gizmo-mode-changed', this.onGizmoModeChangedBound);
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
@@ -284,6 +524,7 @@ export class SdfViewport extends HTMLElement {
   disconnectedCallback() {
     this.sceneStore.removeEventListener('scene-changed', this.onSceneChangedBound);
     window.removeEventListener('keydown', this.onKeyDownBound);
+    window.removeEventListener('gizmo-mode-changed', this.onGizmoModeChangedBound);
     if (this.renderer) {
       this.renderer.destroy();
       this.renderer = null;

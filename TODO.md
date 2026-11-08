@@ -41,6 +41,8 @@
 | **M6.6** | Mesh & Shader Exporter Validation Tests                              | `test-engineer`      | ✅ Complete | OBJ indices, GLB binary chunk alignment, and Shadertoy GLSL output |
 | **M6.7** | Milestone 6 Verification Gate & Test Execution                       | `test-engineer`      | ✅ Complete | 67 tests passing (300ms), 0 type errors, clean production build    |
 | **M6.8** | Centered Floating Export Modal Dialog & Backdrop UX                  | `frontend-developer` | ✅ Complete | Fixed Light DOM :host bug, centered dialog, backdrop blur & Esc    |
+| **M6.9** | 3D Transform Gizmo Mode Switcher (Move, Rotate, Scale)               | `frontend-developer` | ✅ Complete | Viewport HUD segmented buttons, Inspector pills, G/W, R/E, S keys  |
+| **M6.10**| Viewport HUD & Inspector Light Theme Adaptation                      | `frontend-developer` | ✅ Complete | Dynamic `[data-theme="light"]` styling for HUD toolbar & gizmo buttons |
 
 ---
 

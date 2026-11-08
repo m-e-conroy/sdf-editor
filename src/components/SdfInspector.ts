@@ -9,20 +9,32 @@ export class SdfInspector extends HTMLElement {
   private sceneStore = SceneStore.getInstance();
   private onSelectionChangedBound: () => void = () => {};
   private onSceneChangedBound: () => void = () => {};
+  private onGizmoModeChangedBound: (e: Event) => void = () => {};
+  private activeGizmoMode: 'translate' | 'rotate' | 'scale' = 'translate';
 
   connectedCallback() {
     this.render();
 
     this.onSelectionChangedBound = () => this.render();
     this.onSceneChangedBound = () => this.syncValues();
+    this.onGizmoModeChangedBound = ((e: CustomEvent<{ mode: 'translate' | 'rotate' | 'scale' }>) => {
+      if (e.detail?.mode) {
+        this.activeGizmoMode = e.detail.mode;
+        this.querySelectorAll('.insp-pill').forEach((pill) => {
+          pill.classList.toggle('active', (pill as HTMLElement).dataset.mode === e.detail.mode);
+        });
+      }
+    }) as EventListener;
 
     this.sceneStore.addEventListener('selection-changed', this.onSelectionChangedBound);
     this.sceneStore.addEventListener('scene-changed', this.onSceneChangedBound);
+    window.addEventListener('gizmo-mode-changed', this.onGizmoModeChangedBound);
   }
 
   disconnectedCallback() {
     this.sceneStore.removeEventListener('selection-changed', this.onSelectionChangedBound);
     this.sceneStore.removeEventListener('scene-changed', this.onSceneChangedBound);
+    window.removeEventListener('gizmo-mode-changed', this.onGizmoModeChangedBound);
   }
 
   private render() {
@@ -76,6 +88,39 @@ export class SdfInspector extends HTMLElement {
           display: flex;
           align-items: center;
           justify-content: space-between;
+        }
+
+        .inspector-gizmo-pills {
+          display: flex;
+          gap: 2px;
+          background: var(--bg-input);
+          border: 1px solid var(--border-subtle);
+          border-radius: 4px;
+          padding: 1px;
+        }
+
+        .insp-pill {
+          background: transparent;
+          border: 1px solid transparent;
+          color: var(--text-secondary);
+          border-radius: 3px;
+          font-size: 10px;
+          font-weight: 500;
+          padding: 2px 6px;
+          cursor: pointer;
+          transition: all 120ms ease;
+          line-height: 1.2;
+        }
+
+        .insp-pill:hover:not(.active) {
+          color: var(--text-primary);
+          background: var(--bg-panel-elevated);
+        }
+
+        .insp-pill.active {
+          background: var(--accent-primary);
+          color: #ffffff;
+          font-weight: 600;
         }
 
         .field-row {
@@ -206,7 +251,14 @@ export class SdfInspector extends HTMLElement {
 
         <!-- Transform -->
         <div class="prop-section">
-          <div class="section-header">Transform</div>
+          <div class="section-header">
+            <span>Transform</span>
+            <div class="inspector-gizmo-pills" role="radiogroup" aria-label="Gizmo Mode">
+              <button type="button" class="insp-pill ${this.activeGizmoMode === 'translate' ? 'active' : ''}" data-mode="translate" title="Translate / Move (G or W)">Move</button>
+              <button type="button" class="insp-pill ${this.activeGizmoMode === 'rotate' ? 'active' : ''}" data-mode="rotate" title="Rotate (R or E)">Rotate</button>
+              <button type="button" class="insp-pill ${this.activeGizmoMode === 'scale' ? 'active' : ''}" data-mode="scale" title="Scale (S)">Scale</button>
+            </div>
+          </div>
           
           <!-- Position -->
           <div class="field-row">
@@ -451,6 +503,19 @@ export class SdfInspector extends HTMLElement {
   }
 
   private setupListeners(node: any) {
+    // Inspector Gizmo Mode Pills
+    const inspPills = this.querySelectorAll('.insp-pill');
+    inspPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const mode = (pill as HTMLElement).dataset.mode as 'translate' | 'rotate' | 'scale';
+        if (mode) {
+          this.activeGizmoMode = mode;
+          inspPills.forEach((p) => p.classList.toggle('active', (p as HTMLElement).dataset.mode === mode));
+          window.dispatchEvent(new CustomEvent('set-gizmo-mode', { detail: { mode } }));
+        }
+      });
+    });
+
     const nameInput = this.querySelector('#prop-name') as HTMLInputElement;
     nameInput?.addEventListener('change', () => {
       this.sceneStore.updateNode(node.id, { name: nameInput.value });

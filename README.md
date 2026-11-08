@@ -102,6 +102,9 @@ Extract triangle meshes from implicit mathematical fields without freezing the u
 | **NumPad 3** / **3** | Right View | Snaps camera to Right side profile |
 | **NumPad 7** / **7** | Top View | Snaps camera to Top-down elevation |
 | **F** | Focus / Frame | Frames camera view onto the currently selected object |
+| **G** / **W** | Move Gizmo | Switches 3D viewport gizmo to Translation / Move mode |
+| **R** / **E** | Rotate Gizmo | Switches 3D viewport gizmo to Orbital Rotation mode |
+| **S** | Scale Gizmo | Switches 3D viewport gizmo to Proportional / Axis Scale mode |
 | **Ctrl + Z** / **Cmd + Z** | Undo | Rolls back the last scene modification (50 steps) |
 | **Ctrl + Y** / **Cmd + Shift + Z** | Redo | Replays previously undone scene commands |
 | **Ctrl + S** | Save Project | Saves active scene as `.sdf.json` document |
