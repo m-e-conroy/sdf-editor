@@ -56,9 +56,21 @@ export class SdfInspector extends HTMLElement {
 
     // Modifiers state defaults
     const shellThick = node.modifiers?.shellThickness ?? 0.0;
-    const twistVal = node.modifiers?.twistFactor ?? node.modifiers?.twist ?? 0.0;
-    const mirrorAxis = node.modifiers?.mirrorAxis ?? 'none';
+    const twistVal = node.modifiers?.twistFactor ?? (node.modifiers as any)?.twist ?? 0.0;
+    const bendVal = node.modifiers?.bendFactor ?? 0.0;
+    const mirrorAxes = node.modifiers?.mirrorAxes ?? [
+      node.modifiers?.mirrorAxis === 'x',
+      node.modifiers?.mirrorAxis === 'y',
+      node.modifiers?.mirrorAxis === 'z'
+    ];
+    const symX = mirrorAxes[0];
+    const symY = mirrorAxes[1];
+    const symZ = mirrorAxes[2];
+    const radialVal = node.modifiers?.radialRepeat ?? 1;
+    const linearCountVal = node.modifiers?.linearCount ?? 1;
+    const linearSpacingVal = node.modifiers?.linearSpacing ?? 1.0;
     const roundRadius = node.modifiers?.roundRadius ?? 0.0;
+    const metalnessVal = node.material.metalness ?? 0.0;
 
     this.innerHTML = `
       <style>
@@ -353,11 +365,11 @@ export class SdfInspector extends HTMLElement {
         </div>
         ` : ''}
 
-        <!-- Modifiers Section (SDF Deformations) -->
+        <!-- Modifiers Section (SDF Deformations & Arrays) -->
         <div class="prop-section">
           <div class="section-header">
             <span>Modifiers</span>
-            <span style="font-size: 10px; color: var(--accent-primary); font-weight: 500;">Deform</span>
+            <span style="font-size: 10px; color: var(--accent-primary); font-weight: 500;">Deform & Array</span>
           </div>
 
           <!-- Shell / Onion Thickness -->
@@ -371,22 +383,55 @@ export class SdfInspector extends HTMLElement {
 
           <!-- Twist Factor -->
           <div class="field-row">
-            <span class="field-label" title="Rotational twist factor along Y-axis">Twist Factor:</span>
+            <span class="field-label" title="Rotational twist factor along Y-axis">Twist:</span>
             <div class="slider-row">
               <input type="range" id="mod-twist" class="range-slider" min="-2.0" max="2.0" step="0.05" value="${twistVal}" />
               <span id="label-mod-twist" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${twistVal.toFixed(2)}</span>
             </div>
           </div>
 
-          <!-- Symmetry Mirror -->
+          <!-- Bend Factor -->
+          <div class="field-row">
+            <span class="field-label" title="Curvature bend factor in XY-plane">Bend:</span>
+            <div class="slider-row">
+              <input type="range" id="mod-bend" class="range-slider" min="-2.0" max="2.0" step="0.05" value="${bendVal}" />
+              <span id="label-mod-bend" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${bendVal.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <!-- Symmetry Mirror (Multi-axis X, Y, Z pills) -->
           <div class="field-row">
             <span class="field-label" title="Mirror shape across coordinate planes">Symmetry:</span>
-            <select id="mod-mirror" class="select-field">
-              <option value="none" ${mirrorAxis === 'none' ? 'selected' : ''}>None</option>
-              <option value="x" ${mirrorAxis === 'x' ? 'selected' : ''}>X-Axis</option>
-              <option value="y" ${mirrorAxis === 'y' ? 'selected' : ''}>Y-Axis</option>
-              <option value="z" ${mirrorAxis === 'z' ? 'selected' : ''}>Z-Axis</option>
-            </select>
+            <div class="symmetry-pills" style="display: flex; gap: 4px;">
+              <button type="button" class="insp-pill mod-sym-pill ${symX ? 'active' : ''}" data-axis="x">X</button>
+              <button type="button" class="insp-pill mod-sym-pill ${symY ? 'active' : ''}" data-axis="y">Y</button>
+              <button type="button" class="insp-pill mod-sym-pill ${symZ ? 'active' : ''}" data-axis="z">Z</button>
+            </div>
+          </div>
+
+          <!-- Radial Array (Polar Repetition) -->
+          <div class="field-row">
+            <span class="field-label" title="Circular polar repetition count around Y-axis">Radial Array:</span>
+            <div class="slider-row">
+              <input type="range" id="mod-radial" class="range-slider" min="1" max="24" step="1" value="${radialVal}" />
+              <span id="label-mod-radial" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${radialVal}×</span>
+            </div>
+          </div>
+
+          <!-- Linear Array Count & Spacing -->
+          <div class="field-row">
+            <span class="field-label" title="Bounded linear repetition count along X-axis">Linear Count:</span>
+            <div class="slider-row">
+              <input type="range" id="mod-linear-count" class="range-slider" min="1" max="16" step="1" value="${linearCountVal}" />
+              <span id="label-mod-linear-count" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${linearCountVal}×</span>
+            </div>
+          </div>
+          <div class="field-row">
+            <span class="field-label" title="Spacing between linear array instances">Linear Spacing:</span>
+            <div class="slider-row">
+              <input type="range" id="mod-linear-spacing" class="range-slider" min="0.2" max="4.0" step="0.05" value="${linearSpacingVal}" />
+              <span id="label-mod-linear-spacing" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${linearSpacingVal.toFixed(2)}</span>
+            </div>
           </div>
 
           <!-- Round Edge -->
@@ -414,6 +459,13 @@ export class SdfInspector extends HTMLElement {
             <div class="slider-row">
               <input type="range" id="prop-roughness" class="range-slider" min="0" max="1" step="0.02" value="${node.material.roughness ?? 0.35}" />
               <span id="label-roughness" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(node.material.roughness ?? 0.35).toFixed(2)}</span>
+            </div>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Metalness:</span>
+            <div class="slider-row">
+              <input type="range" id="prop-metalness" class="range-slider" min="0" max="1" step="0.02" value="${metalnessVal}" />
+              <span id="label-metalness" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${metalnessVal.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -788,16 +840,75 @@ export class SdfInspector extends HTMLElement {
       });
     });
 
-    // 3. Symmetry Mirror
-    const mirrorSelect = this.querySelector('#mod-mirror') as HTMLSelectElement;
-    mirrorSelect?.addEventListener('change', () => {
-      const val = mirrorSelect.value as 'none' | 'x' | 'y' | 'z';
+    // 3. Bend Factor
+    const bendSlider = this.querySelector('#mod-bend') as HTMLInputElement;
+    const labelBend = this.querySelector('#label-mod-bend');
+    bendSlider?.addEventListener('input', () => {
+      const val = parseFloat(bendSlider.value);
+      if (labelBend) labelBend.textContent = val.toFixed(2);
       this.sceneStore.updateNode(node.id, {
-        modifiers: { ...node.modifiers, mirrorAxis: val }
+        modifiers: { ...node.modifiers, bendFactor: val }
       });
     });
 
-    // 4. Round Edge
+    // 4. Symmetry Mirror (Multi-axis pills)
+    const symPills = this.querySelectorAll<HTMLButtonElement>('.mod-sym-pill');
+    symPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const axis = pill.dataset.axis;
+        const currentAxes: [boolean, boolean, boolean] = [
+          node.modifiers?.mirrorAxes?.[0] ?? (node.modifiers?.mirrorAxis === 'x'),
+          node.modifiers?.mirrorAxes?.[1] ?? (node.modifiers?.mirrorAxis === 'y'),
+          node.modifiers?.mirrorAxes?.[2] ?? (node.modifiers?.mirrorAxis === 'z')
+        ];
+        if (axis === 'x') currentAxes[0] = !currentAxes[0];
+        if (axis === 'y') currentAxes[1] = !currentAxes[1];
+        if (axis === 'z') currentAxes[2] = !currentAxes[2];
+
+        pill.classList.toggle('active', axis === 'x' ? currentAxes[0] : (axis === 'y' ? currentAxes[1] : currentAxes[2]));
+        this.sceneStore.updateNode(node.id, {
+          modifiers: {
+            ...node.modifiers,
+            mirrorAxes: currentAxes,
+            mirrorAxis: 'none'
+          }
+        });
+      });
+    });
+
+    // 5. Radial Array
+    const radialSlider = this.querySelector('#mod-radial') as HTMLInputElement;
+    const labelRadial = this.querySelector('#label-mod-radial');
+    radialSlider?.addEventListener('input', () => {
+      const val = parseInt(radialSlider.value, 10);
+      if (labelRadial) labelRadial.textContent = `${val}×`;
+      this.sceneStore.updateNode(node.id, {
+        modifiers: { ...node.modifiers, radialRepeat: val }
+      });
+    });
+
+    // 6. Linear Array Count & Spacing
+    const linearCountSlider = this.querySelector('#mod-linear-count') as HTMLInputElement;
+    const labelLinearCount = this.querySelector('#label-mod-linear-count');
+    linearCountSlider?.addEventListener('input', () => {
+      const val = parseInt(linearCountSlider.value, 10);
+      if (labelLinearCount) labelLinearCount.textContent = `${val}×`;
+      this.sceneStore.updateNode(node.id, {
+        modifiers: { ...node.modifiers, linearCount: val }
+      });
+    });
+
+    const linearSpacingSlider = this.querySelector('#mod-linear-spacing') as HTMLInputElement;
+    const labelLinearSpacing = this.querySelector('#label-mod-linear-spacing');
+    linearSpacingSlider?.addEventListener('input', () => {
+      const val = parseFloat(linearSpacingSlider.value);
+      if (labelLinearSpacing) labelLinearSpacing.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        modifiers: { ...node.modifiers, linearSpacing: val }
+      });
+    });
+
+    // 7. Round Edge
     const roundSlider = this.querySelector('#prop-round') as HTMLInputElement;
     const labelRound = this.querySelector('#label-round');
     roundSlider?.addEventListener('input', () => {
@@ -823,6 +934,16 @@ export class SdfInspector extends HTMLElement {
       if (labelRough) labelRough.textContent = val.toFixed(2);
       this.sceneStore.updateNode(node.id, {
         material: { ...node.material, roughness: val }
+      });
+    });
+
+    const metalnessSlider = this.querySelector('#prop-metalness') as HTMLInputElement;
+    const labelMetalness = this.querySelector('#label-metalness');
+    metalnessSlider?.addEventListener('input', () => {
+      const val = parseFloat(metalnessSlider.value);
+      if (labelMetalness) labelMetalness.textContent = val.toFixed(2);
+      this.sceneStore.updateNode(node.id, {
+        material: { ...node.material, metalness: val }
       });
     });
 

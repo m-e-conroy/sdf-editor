@@ -156,7 +156,7 @@ describe('UniformPacker', () => {
         { axis: 'none', expected: 0.0 },
         { axis: 'x', expected: 1.0 },
         { axis: 'y', expected: 2.0 },
-        { axis: 'z', expected: 3.0 }
+        { axis: 'z', expected: 4.0 }
       ] as const;
 
       axes.forEach(({ axis, expected }) => {
@@ -171,6 +171,32 @@ describe('UniformPacker', () => {
         // Assert
         expect(packed.modifiers[0].z).toBe(expected);
       });
+
+      // Test multi-axis mirrorAxes bitmask (X: 1, Y: 2, Z: 4)
+      const multiNode = CSGTree.createDefaultNode('torus');
+      multiNode.modifiers = { mirrorAxes: [true, false, true] }; // 1 | 4 = 5
+      tree.root.children = [multiNode];
+      const multiPacked = UniformPacker.pack(tree);
+      expect(multiPacked.modifiers[0].z).toBe(5.0);
+    });
+
+    it('should pack bendFactor and arrayModifiers correctly', () => {
+      const node = CSGTree.createDefaultNode('box');
+      node.modifiers = {
+        bendFactor: 0.75,
+        radialRepeat: 6,
+        linearCount: 4,
+        linearSpacing: 1.5
+      };
+      node.material = { color: '#ffffff', roughness: 0.2, metalness: 0.9 };
+      tree.root.children = [node];
+
+      const packed = UniformPacker.pack(tree);
+      expect(packed.modifiers[0].w).toBeCloseTo(0.75);
+      expect(packed.arrayModifiers[0].x).toBe(6);
+      expect(packed.arrayModifiers[0].y).toBe(4);
+      expect(packed.arrayModifiers[0].z).toBeCloseTo(1.5);
+      expect(packed.arrayModifiers[0].w).toBeCloseTo(0.9);
     });
   });
 

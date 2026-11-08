@@ -52,12 +52,15 @@ export class ShaderExporter {
     lines.push('float sdHeart(vec3 p, float s, float h) { s = max(s, 0.001); h = max(h, 0.001); vec2 q = vec2(p.x, p.y + 0.5 * s) / s; q.x = abs(q.x); float d2d = (q.y + q.x > 1.0) ? (sqrt(dot(q - vec2(0.25, 0.75), q - vec2(0.25, 0.75))) - 0.35355339) : (sqrt(min(dot(q - vec2(0.0, 1.0), q - vec2(0.0, 1.0)), dot(q - 0.5 * max(q.x + q.y, 0.0), q - 0.5 * max(q.x + q.y, 0.0)))) * sign(q.x - q.y)); vec2 w = vec2(d2d * s, abs(p.z) - h); return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)); }');
     lines.push('float sdStar5(vec3 p, float r, float rf, float h) { const vec2 k1 = vec2(0.80901699, -0.58778525); const vec2 k2 = vec2(-k1.x, k1.y); float factor = clamp(rf > 0.0 && rf < r ? rf / r : (rf > 0.0 && rf < 1.0 ? rf : 0.5), 0.1, 0.9); vec2 p2 = p.xy; p2.x = abs(p2.x); p2 -= 2.0 * max(dot(k1, p2), 0.0) * k1; p2 -= 2.0 * max(dot(k2, p2), 0.0) * k2; p2.x = abs(p2.x); p2.y -= r; vec2 ba = factor * vec2(-k1.y, k1.x) - vec2(0.0, 1.0); float dH = clamp(dot(p2, ba) / dot(ba, ba), 0.0, r); float d2d = length(p2 - ba * dH) * sign(p2.y * ba.x - p2.x * ba.y); vec2 w = vec2(d2d, abs(p.z) - h); return min(max(w.x, w.y), 0.0) + length(max(w, 0.0)); }');
     lines.push('');
-    lines.push('// --- CSG BOOLEAN OPERATIONS ---');
+    lines.push('// --- CSG BOOLEAN OPERATIONS & MODIFIERS ---');
     lines.push('float sminPoly(float a, float b, float k) { if (k <= 0.0001) return min(a, b); float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0); return mix(b, a, h) - k * h * (1.0 - h); }');
     lines.push('float smaxPoly(float a, float b, float k) { return -sminPoly(-a, -b, k); }');
     lines.push('float opUnion(float d1, float d2, float k, bool smoothOp) { return smoothOp ? sminPoly(d1, d2, k) : min(d1, d2); }');
     lines.push('float opDiff(float d1, float d2, float k, bool smoothOp) { return smoothOp ? smaxPoly(d1, -d2, k) : max(d1, -d2); }');
     lines.push('float opInter(float d1, float d2, float k, bool smoothOp) { return smoothOp ? smaxPoly(d1, d2, k) : max(d1, d2); }');
+    lines.push('vec3 opBend(vec3 p, float k) { if (abs(k) < 0.001) return p; float c = cos(k * p.x); float s = sin(k * p.x); return vec3(mat2(c, -s, s, c) * p.xy, p.z); }');
+    lines.push('vec3 opPolarRepeat(vec3 p, float count) { if (count < 2.0) return p; float sector = 6.2831853 / count; float angle = atan(p.z, p.x) + 0.5 * sector; float r = length(p.xz); angle = mod(angle, sector) - 0.5 * sector; return vec3(r * cos(angle), p.y, r * sin(angle)); }');
+    lines.push('vec3 opLinearRepeat(vec3 p, float count, float spacing) { if (count <= 1.0 || spacing <= 0.001) return p; float halfLimit = (count - 1.0) * 0.5; p.x = p.x - spacing * clamp(round(p.x / spacing), -halfLimit, halfLimit); return p; }');
     lines.push('');
     lines.push('// --- SCENE DISTANCE FIELD MAP ---');
     lines.push('float map(vec3 worldPos) {');
@@ -82,14 +85,30 @@ export class ShaderExporter {
 
       // Apply Modifiers
       const mods = node.modifiers || {};
-      if (mods.mirrorAxis && mods.mirrorAxis !== 'none') {
-        lines.push(`    ${pVar}.${mods.mirrorAxis} = abs(${pVar}.${mods.mirrorAxis});`);
+      // 1. Array Modifiers (Polar & Linear)
+      if (mods.radialRepeat && mods.radialRepeat >= 2) {
+        lines.push(`    ${pVar} = opPolarRepeat(${pVar}, ${mods.radialRepeat.toFixed(1)});`);
       }
-      const twistFactor = mods.twistFactor ?? mods.twist ?? 0.0;
+      if (mods.linearCount && mods.linearCount >= 2 && mods.linearSpacing && mods.linearSpacing > 0.001) {
+        lines.push(`    ${pVar} = opLinearRepeat(${pVar}, ${mods.linearCount.toFixed(1)}, ${mods.linearSpacing.toFixed(4)});`);
+      }
+      // 2. Deformation Modifiers (Twist & Bend)
+      const twistFactor = mods.twistFactor ?? (mods as any).twist ?? 0.0;
       if (Math.abs(twistFactor) > 0.001) {
         lines.push(`    float c_${index} = cos(${twistFactor.toFixed(4)} * ${pVar}.y);`);
         lines.push(`    float s_${index} = sin(${twistFactor.toFixed(4)} * ${pVar}.y);`);
         lines.push(`    ${pVar}.xz = mat2(c_${index}, -s_${index}, s_${index}, c_${index}) * ${pVar}.xz;`);
+      }
+      if (mods.bendFactor && Math.abs(mods.bendFactor) > 0.001) {
+        lines.push(`    ${pVar} = opBend(${pVar}, ${mods.bendFactor.toFixed(4)});`);
+      }
+      // 3. Symmetry
+      if (mods.mirrorAxes) {
+        if (mods.mirrorAxes[0]) lines.push(`    ${pVar}.x = abs(${pVar}.x);`);
+        if (mods.mirrorAxes[1]) lines.push(`    ${pVar}.y = abs(${pVar}.y);`);
+        if (mods.mirrorAxes[2]) lines.push(`    ${pVar}.z = abs(${pVar}.z);`);
+      } else if (mods.mirrorAxis && mods.mirrorAxis !== 'none') {
+        lines.push(`    ${pVar}.${mods.mirrorAxis} = abs(${pVar}.${mods.mirrorAxis});`);
       }
 
       // Primitive call

@@ -11,6 +11,7 @@ export interface PackedUniformData {
   dimensions: THREE.Vector4[];
   csgConfig: THREE.Vector4[];
   modifiers: THREE.Vector4[];
+  arrayModifiers: THREE.Vector4[];
   materials: THREE.Vector4[];
 }
 
@@ -54,6 +55,7 @@ export class UniformPacker {
     const dimensions: THREE.Vector4[] = [];
     const csgConfig: THREE.Vector4[] = [];
     const modifiers: THREE.Vector4[] = [];
+    const arrayModifiers: THREE.Vector4[] = [];
     const materials: THREE.Vector4[] = [];
 
     for (let i = 0; i < MAX_GPU_NODES; i++) {
@@ -150,14 +152,30 @@ export class UniformPacker {
         const roundRadius = node.modifiers?.roundRadius || 0.0;
         csgConfig.push(new THREE.Vector4(opId, blendId, k, roundRadius));
 
-        // Modifiers Config: x = shellThickness, y = twist, z = symmetryAxis (0: none, 1: X, 2: Y, 3: Z), w = reserved
+        // Modifiers Config: x = shellThickness, y = twist, z = symmetryMask (1: X, 2: Y, 4: Z), w = bendFactor
         const shellThickness = node.modifiers?.shellThickness || 0.0;
         const twist = node.modifiers?.twist ?? node.modifiers?.twistFactor ?? 0.0;
-        let symAxis = 0.0;
-        if (node.modifiers?.mirrorAxis === 'x') symAxis = 1.0;
-        else if (node.modifiers?.mirrorAxis === 'y') symAxis = 2.0;
-        else if (node.modifiers?.mirrorAxis === 'z') symAxis = 3.0;
-        modifiers.push(new THREE.Vector4(shellThickness, twist, symAxis, 0.0));
+        const bend = node.modifiers?.bendFactor ?? 0.0;
+        let symMask = 0;
+        if (node.modifiers?.mirrorAxes) {
+          if (node.modifiers.mirrorAxes[0]) symMask |= 1;
+          if (node.modifiers.mirrorAxes[1]) symMask |= 2;
+          if (node.modifiers.mirrorAxes[2]) symMask |= 4;
+        } else if (node.modifiers?.mirrorAxis === 'x') {
+          symMask = 1;
+        } else if (node.modifiers?.mirrorAxis === 'y') {
+          symMask = 2;
+        } else if (node.modifiers?.mirrorAxis === 'z') {
+          symMask = 4;
+        }
+        modifiers.push(new THREE.Vector4(shellThickness, twist, symMask, bend));
+
+        // Array Modifiers Config: x = radialRepeat, y = linearCount, z = linearSpacing, w = metalness
+        const radialRepeat = node.modifiers?.radialRepeat ?? 1.0;
+        const linearCount = node.modifiers?.linearCount ?? 1.0;
+        const linearSpacing = node.modifiers?.linearSpacing ?? 0.8;
+        const metalness = node.material.metalness ?? 0.0;
+        arrayModifiers.push(new THREE.Vector4(radialRepeat, linearCount, linearSpacing, metalness));
 
         // Material Config: rgb, w = roughness
         const color = new THREE.Color(node.material.color || '#e2e8f0');
@@ -169,6 +187,7 @@ export class UniformPacker {
         dimensions.push(new THREE.Vector4(0, 0, 0, 0));
         csgConfig.push(new THREE.Vector4(0, 0, 0, 0));
         modifiers.push(new THREE.Vector4(0, 0, 0, 0));
+        arrayModifiers.push(new THREE.Vector4(1, 1, 0, 0));
         materials.push(new THREE.Vector4(0.8, 0.8, 0.8, 0.5));
       }
     }
@@ -180,6 +199,7 @@ export class UniformPacker {
       dimensions,
       csgConfig,
       modifiers,
+      arrayModifiers,
       materials
     };
   }

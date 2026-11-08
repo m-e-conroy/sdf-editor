@@ -11,6 +11,7 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
     const dummyDimensions: THREE.Vector4[] = [];
     const dummyCSG: THREE.Vector4[] = [];
     const dummyModifiers: THREE.Vector4[] = [];
+    const dummyArrayModifiers: THREE.Vector4[] = [];
     const dummyMaterials: THREE.Vector4[] = [];
 
     for (let i = 0; i < MAX_GPU_NODES; i++) {
@@ -19,6 +20,7 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
       dummyDimensions.push(new THREE.Vector4(0.8, 0.8, 0.8, 0.0));
       dummyCSG.push(new THREE.Vector4(0, 0, 0, 0));
       dummyModifiers.push(new THREE.Vector4(0, 0, 0, 0));
+      dummyArrayModifiers.push(new THREE.Vector4(1, 1, 0, 0));
       dummyMaterials.push(new THREE.Vector4(0.85, 0.85, 0.85, 0.4));
     }
 
@@ -39,12 +41,15 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
         uEnableShadows: { value: 1 },   // alias
         uAOEnabled: { value: 1 },       // 1 = enabled, 0 = disabled
         uEnableAO: { value: 1 },        // alias
+        uShowGrid: { value: 1 },        // 1 = show CAD floor grid, 0 = hide
+        uSelectedNodeIndex: { value: -1 }, // Index of selected node for highlight contour
         uNodeCount: { value: 0 },
         uNodeInvMatrices: { value: dummyMatrices },
         uNodeTypes: { value: dummyTypes },
         uNodeDimensions: { value: dummyDimensions },
         uNodeCSG: { value: dummyCSG },
         uNodeModifiers: { value: dummyModifiers },
+        uNodeArrayModifiers: { value: dummyArrayModifiers },
         uNodeMaterials: { value: dummyMaterials }
       },
       depthWrite: true,
@@ -70,7 +75,24 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
       this.uniforms.uNodeDimensions.value[i].copy(packed.dimensions[i]);
       this.uniforms.uNodeCSG.value[i].copy(packed.csgConfig[i]);
       this.uniforms.uNodeModifiers.value[i].copy(packed.modifiers[i]);
+      this.uniforms.uNodeArrayModifiers.value[i].copy(packed.arrayModifiers[i]);
       this.uniforms.uNodeMaterials.value[i].copy(packed.materials[i]);
+    }
+  }
+
+  public setShowGrid(show: boolean): void {
+    if (this.uniforms.uShowGrid) {
+      this.uniforms.uShowGrid.value = show ? 1 : 0;
+    }
+  }
+
+  public isShowGrid(): boolean {
+    return this.uniforms.uShowGrid?.value === 1;
+  }
+
+  public setSelectedNodeIndex(index: number): void {
+    if (this.uniforms.uSelectedNodeIndex) {
+      this.uniforms.uSelectedNodeIndex.value = index;
     }
   }
 

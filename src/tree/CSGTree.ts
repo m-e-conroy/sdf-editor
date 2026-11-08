@@ -101,6 +101,30 @@ export class CSGTree {
     return true;
   }
 
+  public duplicateNode(nodeId: string): SDFNode | null {
+    if (this.root.id === nodeId) return null; // Cannot duplicate root
+    const node = this.findNode(nodeId);
+    const parent = this.findParent(nodeId);
+    if (!node || !parent) return null;
+
+    const cloned: SDFNode = JSON.parse(JSON.stringify(node));
+    cloned.id = 'node_' + Math.random().toString(36).substring(2, 9);
+    cloned.name = `${node.name} Copy`;
+    cloned.transform.position = [
+      node.transform.position[0] + 0.25,
+      node.transform.position[1],
+      node.transform.position[2] + 0.25
+    ];
+
+    const idx = parent.children.findIndex((c) => c.id === nodeId);
+    if (idx !== -1) {
+      parent.children.splice(idx + 1, 0, cloned);
+    } else {
+      parent.children.push(cloned);
+    }
+    return cloned;
+  }
+
   public removeNode(id: string): boolean {
     if (this.root.id === id) return false; // Cannot remove root
     const parent = this.findParent(id);

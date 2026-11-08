@@ -111,6 +111,32 @@ export class SceneStore extends EventTarget {
     });
   }
 
+  public duplicateNode(nodeId: string): SDFNode | null {
+    const node = this.tree.findNode(nodeId);
+    const parent = this.tree.findParent(nodeId);
+    if (!node || !parent) return null;
+
+    let duplicatedNode: SDFNode | null = null;
+
+    this.execute({
+      name: `Duplicate ${node.name}`,
+      execute: () => {
+        duplicatedNode = this.tree.duplicateNode(nodeId);
+        if (duplicatedNode) {
+          this.selectedNodeId = (duplicatedNode as SDFNode).id;
+        }
+      },
+      undo: () => {
+        if (duplicatedNode) {
+          this.tree.removeNode((duplicatedNode as SDFNode).id);
+          this.selectedNodeId = nodeId;
+        }
+      }
+    });
+
+    return duplicatedNode;
+  }
+
   public updateNode(id: string, updates: Partial<SDFNode>): void {
     const node = this.tree.findNode(id);
     if (!node) return;

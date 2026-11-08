@@ -19,8 +19,11 @@ uniform mat4 uNodeInvMatrices[MAX_NODES];
 uniform int uNodeTypes[MAX_NODES];
 uniform vec4 uNodeDimensions[MAX_NODES];
 uniform vec4 uNodeCSG[MAX_NODES];       // x: op, y: blendMode, z: k, w: roundRadius
-uniform vec4 uNodeModifiers[MAX_NODES]; // x: shellThickness, y: twistFactor, z: mirrorAxis (0:none, 1:x, 2:y, 3:z)
+uniform vec4 uNodeModifiers[MAX_NODES]; // x: shellThickness, y: twistFactor, z: symmetryMask, w: bendFactor
+uniform vec4 uNodeArrayModifiers[MAX_NODES]; // x: radialRepeat, y: linearCount, z: linearSpacing, w: metalness
 uniform vec4 uNodeMaterials[MAX_NODES]; // xyz: color, w: roughness
+uniform int uShowGrid;                  // 1 = on, 0 = off
+uniform int uSelectedNodeIndex;         // -1 = none, 0..31 = selected node index
 
 varying vec2 vUv;
 
@@ -303,11 +306,38 @@ vec3 opTwist(vec3 p, float k) {
     return vec3(m * p.xz, p.y).xzy;
 }
 
-// Coordinate Symmetry Mirror
-vec3 opSymmetry(vec3 p, int axis) {
-    if (axis == 1) return vec3(abs(p.x), p.y, p.z);
-    if (axis == 2) return vec3(p.x, abs(p.y), p.z);
-    if (axis == 3) return vec3(p.x, p.y, abs(p.z));
+// Coordinate Bend Modifier in XY plane
+vec3 opBend(vec3 p, float k) {
+    if (abs(k) < 0.001) return p;
+    float c = cos(k * p.x);
+    float s = sin(k * p.x);
+    mat2 m = mat2(c, -s, s, c);
+    return vec3(m * p.xy, p.z);
+}
+
+// Coordinate Symmetry Mirror Mask (1: X, 2: Y, 4: Z)
+vec3 opSymmetryMask(vec3 p, int mask) {
+    if ((mask & 1) != 0) p.x = abs(p.x);
+    if ((mask & 2) != 0) p.y = abs(p.y);
+    if ((mask & 4) != 0) p.z = abs(p.z);
+    return p;
+}
+
+// Polar / Radial Array Repetition around Y-axis
+vec3 opPolarRepeat(vec3 p, float count) {
+    if (count < 2.0) return p;
+    float sector = 6.28318530718 / count;
+    float angle = atan(p.z, p.x) + 0.5 * sector;
+    float r = length(p.xz);
+    angle = mod(angle, sector) - 0.5 * sector;
+    return vec3(r * cos(angle), p.y, r * sin(angle));
+}
+
+// Bounded Linear Array Repetition along X-axis
+vec3 opLinearRepeat(vec3 p, float count, float spacing) {
+    if (count <= 1.0 || spacing <= 0.001) return p;
+    float halfLimit = (count - 1.0) * 0.5;
+    p.x = p.x - spacing * clamp(round(p.x / spacing), -halfLimit, halfLimit);
     return p;
 }
 
@@ -343,20 +373,32 @@ struct SceneHit {
     float dist;
     vec3 color;
     float roughness;
+    float metalness;
+    int nodeIndex;
 };
 
+vec3 applyNodeDomainModifiers(vec3 p, int i) {
+    // 1. Array Modifiers (Domain repetition occurs in local space before deforms)
+    if (uNodeArrayModifiers[i].x >= 2.0) p = opPolarRepeat(p, uNodeArrayModifiers[i].x);
+    if (uNodeArrayModifiers[i].y >= 2.0) p = opLinearRepeat(p, uNodeArrayModifiers[i].y, uNodeArrayModifiers[i].z);
+    // 2. Deformation Modifiers
+    if (abs(uNodeModifiers[i].y) > 0.001) p = opTwist(p, uNodeModifiers[i].y);
+    if (abs(uNodeModifiers[i].w) > 0.001) p = opBend(p, uNodeModifiers[i].w);
+    if (int(uNodeModifiers[i].z) > 0) p = opSymmetryMask(p, int(uNodeModifiers[i].z));
+    return p;
+}
+
 SceneHit sceneMap(vec3 p) {
-    float dFloor = p.y + 1.2;
+    float dFloor = (uShowGrid == 1) ? (p.y + 1.2) : 1e5;
     vec3 floorCol = (uThemeMode == 0) ? vec3(0.09, 0.09, 0.1) : vec3(0.92, 0.92, 0.94);
 
     if (uNodeCount == 0) {
-        return SceneHit(dFloor, floorCol, 0.5);
+        return SceneHit(dFloor, floorCol, 0.5, 0.0, -1);
     }
 
     // Evaluate first active node
     vec3 p0 = (uNodeInvMatrices[0] * vec4(p, 1.0)).xyz;
-    if (abs(uNodeModifiers[0].y) > 0.001) p0 = opTwist(p0, uNodeModifiers[0].y);
-    if (int(uNodeModifiers[0].z) > 0) p0 = opSymmetry(p0, int(uNodeModifiers[0].z));
+    p0 = applyNodeDomainModifiers(p0, 0);
 
     float dAcc = evalPrimitive(uNodeTypes[0], p0, uNodeDimensions[0]);
     if (uNodeCSG[0].w > 0.0) dAcc -= uNodeCSG[0].w; // Rounding
@@ -364,14 +406,15 @@ SceneHit sceneMap(vec3 p) {
 
     vec3 matAcc = uNodeMaterials[0].xyz;
     float roughAcc = uNodeMaterials[0].w;
+    float metalAcc = uNodeArrayModifiers[0].w;
+    int hitNodeIdx = 0;
 
     // Accumulate through CSG chain
     for (int i = 1; i < MAX_NODES; i++) {
         if (i >= uNodeCount) break;
 
         vec3 pNode = (uNodeInvMatrices[i] * vec4(p, 1.0)).xyz;
-        if (abs(uNodeModifiers[i].y) > 0.001) pNode = opTwist(pNode, uNodeModifiers[i].y);
-        if (int(uNodeModifiers[i].z) > 0) pNode = opSymmetry(pNode, int(uNodeModifiers[i].z));
+        pNode = applyNodeDomainModifiers(pNode, i);
 
         float dNode = evalPrimitive(uNodeTypes[i], pNode, uNodeDimensions[i]);
         if (uNodeCSG[i].w > 0.0) dNode -= uNodeCSG[i].w; // Rounding
@@ -388,11 +431,15 @@ SceneHit sceneMap(vec3 p) {
                 dAcc = blend.x;
                 matAcc = mix(uNodeMaterials[i].xyz, matAcc, blend.y);
                 roughAcc = mix(uNodeMaterials[i].w, roughAcc, blend.y);
+                metalAcc = mix(uNodeArrayModifiers[i].w, metalAcc, blend.y);
+                if (blend.y < 0.5) hitNodeIdx = i;
             } else {
                 if (dNode < dAcc) {
                     dAcc = dNode;
                     matAcc = uNodeMaterials[i].xyz;
                     roughAcc = uNodeMaterials[i].w;
+                    metalAcc = uNodeArrayModifiers[i].w;
+                    hitNodeIdx = i;
                 }
             }
         } else if (op == 1) {
@@ -400,22 +447,34 @@ SceneHit sceneMap(vec3 p) {
             if (blendMode == 1) {
                 dAcc = opSmoothDifference(dAcc, dNode, k);
             } else {
-                dAcc = max(dAcc, -dNode);
+                if (-dNode > dAcc) {
+                    dAcc = -dNode;
+                    matAcc = uNodeMaterials[i].xyz;
+                    roughAcc = uNodeMaterials[i].w;
+                    metalAcc = uNodeArrayModifiers[i].w;
+                    hitNodeIdx = i;
+                }
             }
         } else if (op == 2) {
             // Intersection
             if (blendMode == 1) {
                 dAcc = opSmoothIntersection(dAcc, dNode, k);
             } else {
-                dAcc = max(dAcc, dNode);
+                if (dNode > dAcc) {
+                    dAcc = dNode;
+                    matAcc = uNodeMaterials[i].xyz;
+                    roughAcc = uNodeMaterials[i].w;
+                    metalAcc = uNodeArrayModifiers[i].w;
+                    hitNodeIdx = i;
+                }
             }
         }
     }
 
     if (dFloor < dAcc) {
-        return SceneHit(dFloor, floorCol, 0.6);
+        return SceneHit(dFloor, floorCol, 0.6, 0.0, -1);
     } else {
-        return SceneHit(dAcc, matAcc, roughAcc);
+        return SceneHit(dAcc, matAcc, roughAcc, metalAcc, hitNodeIdx);
     }
 }
 
@@ -463,12 +522,35 @@ float calcShadow(vec3 ro, vec3 rd, float mint, float maxt) {
     return clamp(res, 0.0, 1.0);
 }
 
-// Floor Grid
-float gridPattern(vec2 p) {
-    vec2 coord = p * 2.0;
-    vec2 grid = abs(fract(coord - 0.5) - 0.5) / fwidth(coord);
-    float line = min(grid.x, grid.y);
-    return 1.0 - min(line, 1.0);
+// CAD Floor Grid with Major/Minor ticks and Origin Axis Lines
+vec3 evalFloorGrid(vec2 p, vec3 floorBase, int themeMode) {
+    // Major grid (1.0 unit spacing)
+    vec2 grid1 = abs(fract(p - 0.5) - 0.5) / fwidth(p);
+    float line1 = 1.0 - min(min(grid1.x, grid1.y), 1.0);
+
+    // Minor grid (0.2 unit spacing)
+    vec2 p5 = p * 5.0;
+    vec2 grid5 = abs(fract(p5 - 0.5) - 0.5) / fwidth(p5);
+    float line5 = 1.0 - min(min(grid5.x, grid5.y), 1.0);
+
+    // Axis lines (X axis is red z=0, Z axis is blue x=0)
+    float axisX = 1.0 - min(abs(p.y) / fwidth(p.y), 1.0);
+    float axisZ = 1.0 - min(abs(p.x) / fwidth(p.x), 1.0);
+
+    vec3 colMinor = (themeMode == 0) ? vec3(0.14, 0.14, 0.16) : vec3(0.85, 0.85, 0.88);
+    vec3 colMajor = (themeMode == 0) ? vec3(0.25, 0.25, 0.29) : vec3(0.70, 0.70, 0.75);
+    vec3 colAxisX = vec3(0.9, 0.25, 0.25);  // Red X axis line
+    vec3 colAxisZ = vec3(0.25, 0.5, 0.95);  // Blue Z axis line
+
+    // Radial distance fade
+    float distFade = exp(-dot(p, p) * 0.012);
+
+    vec3 c = floorBase;
+    c = mix(c, colMinor, line5 * 0.4 * distFade);
+    c = mix(c, colMajor, line1 * 0.7 * distFade);
+    c = mix(c, colAxisX, axisX * 0.85 * distFade);
+    c = mix(c, colAxisZ, axisZ * 0.85 * distFade);
+    return c;
 }
 
 void main() {
@@ -507,31 +589,35 @@ void main() {
 
         float shadowKey = calcShadow(hitPos + normal * 0.005, keyLight, 0.02, 8.0);
 
-        if (hitPos.y < -1.18) {
-            // Floor Grid Rendering
-            float grid = gridPattern(hitPos.xz);
-            vec3 gridColor = (uThemeMode == 0) ? vec3(0.18, 0.18, 0.2) : vec3(0.85, 0.85, 0.88);
+        if (hitPos.y < -1.18 && uShowGrid == 1) {
+            // CAD Floor Grid Rendering
             vec3 floorBase = (uThemeMode == 0) ? vec3(0.09, 0.09, 0.1) : vec3(0.92, 0.92, 0.94);
-            vec3 floorCol = mix(floorBase, gridColor, grid * 0.35);
+            vec3 floorCol = evalFloorGrid(hitPos.xz, floorBase, uThemeMode);
             col = floorCol * (0.35 + 0.65 * shadowKey) * ao;
         } else {
             // ====================================================================
             // 5 Procedural Matcap Lookdev Shading Presets
             // ====================================================================
             if (uMatcapPreset == 0) {
-                // Preset 0: Dark Studio Clay
+                // Preset 0: Dark Studio Clay with PBR Metalness
                 float diffKey = max(dot(normal, keyLight), 0.0);
                 float diffFill = max(dot(normal, fillLight), 0.0) * 0.4;
                 float diffRim = max(dot(normal, rimLight), 0.0) * 0.3;
 
                 vec3 ambient = (uThemeMode == 0) ? vec3(0.12, 0.12, 0.14) : vec3(0.35, 0.35, 0.38);
                 vec3 lighting = ambient + (diffKey * shadowKey + diffFill + diffRim) * vec3(1.0);
-                col = hitInfo.color * lighting * ao;
+                
+                // Diffuse attenuated by metalness (metals absorb diffuse light)
+                vec3 diffuseColor = hitInfo.color * (1.0 - hitInfo.metalness * 0.85);
+                col = diffuseColor * lighting * ao;
 
                 vec3 halfVec = normalize(keyLight - rayDir);
-                float specPower = mix(64.0, 8.0, hitInfo.roughness);
+                float specPower = mix(96.0, 6.0, hitInfo.roughness);
                 float spec = pow(max(dot(normal, halfVec), 0.0), specPower) * shadowKey;
-                col += vec3(0.95, 0.75, 0.5) * spec * (1.0 - hitInfo.roughness) * 0.5;
+                
+                // Specular tinted by albedo for metals (F0 = 0.04 for dielectric, albedo for metals)
+                vec3 f0 = mix(vec3(0.04), hitInfo.color, hitInfo.metalness);
+                col += f0 * spec * (1.0 - hitInfo.roughness * 0.7);
 
             } else if (uMatcapPreset == 1) {
                 // Preset 1: Matcap Red Wax (Classic ZBrush / Sculpting Wax)
@@ -577,13 +663,27 @@ void main() {
                 col += horizonGold * rim * 0.5;
                 col *= ao;
             }
+
+            // Selection Accent Contour Highlight
+            if (uSelectedNodeIndex >= 0 && hitInfo.nodeIndex == uSelectedNodeIndex) {
+                float fresnelSel = pow(1.0 - max(dot(normal, -rayDir), 0.0), 3.0);
+                vec3 selAccent = vec3(0.2, 0.65, 1.0); // Vibrant blue/cyan highlight
+                col = mix(col, selAccent, fresnelSel * 0.65);
+            }
         }
 
         float nonLinearDepth = (1.0 / tHit - 1.0 / uNear) / (1.0 / uFar - 1.0 / uNear);
+#if defined(GL_EXT_frag_depth)
+        gl_FragDepthEXT = clamp(nonLinearDepth, 0.0, 1.0);
+    } else {
+        gl_FragDepthEXT = 1.0;
+    }
+#else
         gl_FragDepth = clamp(nonLinearDepth, 0.0, 1.0);
     } else {
         gl_FragDepth = 1.0;
     }
+#endif
 
     gl_FragColor = vec4(col, 1.0);
 }

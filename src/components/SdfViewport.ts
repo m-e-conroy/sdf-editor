@@ -7,6 +7,9 @@ interface LookdevRenderer extends RaymarchRenderer {
   setCameraView(view: 'front' | 'right' | 'top'): void;
   toggleShadows(enable?: boolean): void;
   toggleAO(enable?: boolean): void;
+  toggleGrid(enable?: boolean): void;
+  isShowGrid(): boolean;
+  captureSnapshot(filename?: string): void;
   focusOnSelected(): void;
   setGizmoMode(mode: 'translate' | 'rotate' | 'scale'): void;
   getGizmoMode(): 'translate' | 'rotate' | 'scale';
@@ -394,6 +397,9 @@ export class SdfViewport extends HTMLElement {
 
       <!-- Feature Toggles -->
       <div class=\"hud-group\">
+        <button id=\"hud-toggle-grid\" class=\"hud-toggle active\" title=\"Toggle CAD Floor Grid\">
+          <span>🌐 Grid</span>
+        </button>
         <button id=\"hud-toggle-shadows\" class=\"hud-toggle active\" title=\"Toggle Soft Shadows\">
           <span>☀️ Shadows</span>
         </button>
@@ -411,6 +417,15 @@ export class SdfViewport extends HTMLElement {
         <button id=\"hud-cam-top\" class=\"hud-btn\" title=\"Top View (Numpad 7)\">Top (7)</button>
         <button id=\"hud-cam-focus\" class=\"hud-btn\" title=\"Frame Selected Object (F)\">Focus (F)</button>
       </div>
+
+      <div class=\"hud-divider\"></div>
+
+      <!-- Snapshot Capture -->
+      <div class=\"hud-group\">
+        <button id=\"hud-btn-snapshot\" class=\"hud-btn\" title=\"Capture Clean PNG Snapshot\">
+          <span>📷 Snapshot</span>
+        </button>
+      </div>
     `;
 
     this.appendChild(this.hudElement);
@@ -419,6 +434,19 @@ export class SdfViewport extends HTMLElement {
 
   private wireHUDListeners(): void {
     if (!this.hudElement) return;
+
+    // Floor Grid Toggle
+    const gridBtn = this.hudElement.querySelector('#hud-toggle-grid') as HTMLButtonElement;
+    gridBtn?.addEventListener('click', () => {
+      this.renderer?.toggleGrid();
+      gridBtn.classList.toggle('active', this.renderer?.isShowGrid() ?? true);
+    });
+
+    // Clean Snapshot Capture
+    const snapshotBtn = this.hudElement.querySelector('#hud-btn-snapshot') as HTMLButtonElement;
+    snapshotBtn?.addEventListener('click', () => {
+      this.renderer?.captureSnapshot();
+    });
 
     // Shading Preset
     const shadingSelect = this.hudElement.querySelector('#hud-shading-select') as HTMLSelectElement;
@@ -514,6 +542,23 @@ export class SdfViewport extends HTMLElement {
     } else if (e.key === 'f' || e.key === 'F') {
       e.preventDefault();
       this.renderer?.focusOnSelected();
+    } else if ((e.key === 'd' || e.key === 'D') && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      // Duplicate selected node (Shift+D or Ctrl+D)
+      e.preventDefault();
+      const selected = this.sceneStore.getSelectedNode();
+      if (selected && selected.id !== this.sceneStore.tree.root.id) {
+        this.sceneStore.duplicateNode(selected.id);
+      }
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      // Delete selected node
+      e.preventDefault();
+      const selected = this.sceneStore.getSelectedNode();
+      if (selected && selected.id !== this.sceneStore.tree.root.id) {
+        this.sceneStore.removeNode(selected.id);
+      }
+    } else if (e.key === 'Escape') {
+      // Deselect
+      this.sceneStore.selectNode(null);
     }
   }
 

@@ -4,7 +4,6 @@
 
 import { SceneStore } from '../store/SceneStore';
 import { SDFNode, PrimitiveType, CSGOpType } from '../tree/types';
-import { CSGTree } from '../tree/CSGTree';
 
 export class SdfOutliner extends HTMLElement {
   private sceneStore = SceneStore.getInstance();
@@ -135,7 +134,7 @@ export class SdfOutliner extends HTMLElement {
         .badge-intersection { background: rgba(41, 128, 185, 0.2); color: var(--badge-intersection); border: 1px solid var(--badge-intersection); }
         .badge-smooth { background: rgba(155, 89, 182, 0.2); color: var(--badge-smooth); border: 1px solid var(--badge-smooth); }
 
-        .btn-eye, .btn-del {
+        .btn-eye, .btn-del, .btn-dup {
           background: transparent;
           border: none;
           color: var(--text-muted);
@@ -145,11 +144,14 @@ export class SdfOutliner extends HTMLElement {
           border-radius: 3px;
         }
 
-        .btn-eye:hover, .btn-del:hover {
+        .btn-eye:hover, .btn-del:hover, .btn-dup:hover {
           color: var(--text-primary);
         }
         .btn-del:hover {
           color: #e74c3c;
+        }
+        .btn-dup:hover {
+          color: var(--accent-primary);
         }
 
         .is-hidden {
@@ -176,10 +178,7 @@ export class SdfOutliner extends HTMLElement {
 
     const addBtn = this.querySelector('#btn-add-child') as HTMLButtonElement;
     addBtn?.addEventListener('click', () => {
-      const selected = this.sceneStore.getSelectedNode();
-      const parentId = selected ? selected.id : this.sceneStore.tree.root.id;
-      const newNode = CSGTree.createDefaultNode('box', 'New Box');
-      this.sceneStore.addNode(newNode, parentId);
+      window.dispatchEvent(new CustomEvent('toggle-shape-palette'));
     });
   }
 
@@ -220,15 +219,62 @@ export class SdfOutliner extends HTMLElement {
 
       row.innerHTML = `
         <span class="node-icon">${glyph}</span>
-        <span class="node-name" title="${node.name}">${node.name}</span>
+        <span class="node-name" title="Double click to rename: ${node.name}">${node.name}</span>
         ${node.id !== this.sceneStore.tree.root.id ? `<span class="badge-csg ${badgeClass}" title="CSG Mode (Click to cycle)">${badgeSymbol}</span>` : ''}
+        ${node.id !== this.sceneStore.tree.root.id ? `<button class="btn-dup" title="Duplicate Node (Shift+D)">⧉</button>` : ''}
         <button class="btn-eye" title="Toggle Visibility">${node.visible ? '👁️' : '🕶️'}</button>
         ${node.id !== this.sceneStore.tree.root.id ? `<button class="btn-del" title="Delete Node">✕</button>` : ''}
       `;
 
       row.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('.btn-eye') || (e.target as HTMLElement).closest('.btn-del') || (e.target as HTMLElement).closest('.badge-csg')) return;
+        if ((e.target as HTMLElement).closest('.btn-eye') || (e.target as HTMLElement).closest('.btn-del') || (e.target as HTMLElement).closest('.btn-dup') || (e.target as HTMLElement).closest('.badge-csg')) return;
         this.sceneStore.selectNode(node.id);
+      });
+
+      const nameSpan = row.querySelector('.node-name') as HTMLElement;
+      nameSpan?.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const currentName = node.name;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'inline-rename-input';
+        input.value = currentName;
+        input.style.width = '100%';
+        input.style.background = 'var(--bg-input)';
+        input.style.color = 'var(--text-primary)';
+        input.style.border = '1px solid var(--accent-primary)';
+        input.style.borderRadius = '2px';
+        input.style.padding = '1px 4px';
+        input.style.fontSize = '11px';
+        input.style.outline = 'none';
+
+        const commitRename = () => {
+          const newName = input.value.trim();
+          if (newName && newName !== currentName) {
+            this.sceneStore.updateNode(node.id, { name: newName });
+          } else {
+            this.refreshTree();
+          }
+        };
+
+        input.addEventListener('keydown', (ke) => {
+          if (ke.key === 'Enter') {
+            commitRename();
+          } else if (ke.key === 'Escape') {
+            this.refreshTree();
+          }
+        });
+        input.addEventListener('blur', commitRename);
+
+        nameSpan.replaceWith(input);
+        input.focus();
+        input.select();
+      });
+
+      const dupBtn = row.querySelector('.btn-dup');
+      dupBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.sceneStore.duplicateNode(node.id);
       });
 
       const eyeBtn = row.querySelector('.btn-eye');
@@ -320,7 +366,13 @@ export class SdfOutliner extends HTMLElement {
       hexagonal_prism: '🛑',
       tetrahedron: '💠',
       octahedron: '💎',
-      mandelbulb: '🌀'
+      mandelbulb: '🌀',
+      capped_torus: '📐',
+      chain_link: '🔗',
+      chamfer_cylinder: '⚙️',
+      egg: '🥚',
+      heart: '❤️',
+      star_prism: '⭐'
     };
     return glyphs[type] || '🔹';
   }

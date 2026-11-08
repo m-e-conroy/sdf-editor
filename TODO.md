@@ -1,7 +1,7 @@
 # SDF Studio 3D - Sprint Backlog & Task Tracker
 
 > **Project:** SDF Studio 3D  
-> **Status:** All Milestones (1 through 8) Complete - Production Ready  
+> **Status:** All Milestones (1 through 9) Complete - Production Ready  
 > **Manager:** Project Manager Agent  
 > **Target Path:** `projects/sdf-editor/`
 
@@ -69,6 +69,19 @@
 | **M8.4** | 6 Bespoke 3D Rendered Isometric Clay SVG Icons                       | `creative-director`  | ✅ Complete | Studio 3-point lighting, specular highlights & contact shadows     |
 | **M8.5** | Advanced Multi-Parameter Properties Inspector Controls               | `frontend-developer` | ✅ Complete | Multi-slider scrubbers (arc angle, link length, chamfer, etc.)     |
 | **M8.6** | Milestone 8 Test Suite & Quality Gate Verification                   | `test-engineer`      | ✅ Complete | 83/83 unit tests passing, 0 TypeScript errors, clean prod build    |
+
+---
+
+## Milestone 9: Studio Workflow, SDF Power Modifiers & Visual Polish - ✅ Complete
+
+| ID       | Task Description                                                     | Owner                |   Status    | Notes                                                              |
+| :------- | :------------------------------------------------------------------- | :------------------- | :---------: | :----------------------------------------------------------------- |
+| **M9.1** | CPU Sphere-Traced Viewport Raycaster & Click-to-Select / Deselect    | `game-developer`     | ✅ Complete | Screen raycast picking, closest hit node vs empty-space deselect   |
+| **M9.2** | Node Duplication (`Shift+D`), Delete (`Del`) & Outliner Polish       | `frontend-developer` | ✅ Complete | Full undo/redo clone, 21 Outliner glyphs, double-click rename     |
+| **M9.3** | SDF Power Modifiers (Symmetry Mask, Bend, Polar & Linear Arrays)     | `game-developer`     | ✅ Complete | GPU shader, UniformPacker, MarchingCubes & ShaderExporter updates  |
+| **M9.4** | CAD Floor Grid, Selection Rim Highlight & Metalness Shading         | `creative-director`  | ✅ Complete | X/Z axis lines, radial fade, grid toggle, selection fresnel accent |
+| **M9.5** | Inspector Controls for Modifiers/Metalness & 1-Click PNG Snapshot    | `frontend-developer` | ✅ Complete | Multi-axis pills, array sliders, gizmo-free high-res screenshot   |
+| **M9.6** | Milestone 9 Test Suite & Quality Gate Verification                   | `test-engineer`      | ✅ Complete | 87/87 unit tests passing, 0 TypeScript errors, clean prod build    |
 
 ---
 

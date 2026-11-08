@@ -471,8 +471,27 @@ function createSceneEvaluator(nodes: WorkerNodeData[]) {
       let ly = m[1] * px + m[5] * py + m[9] * pz + m[13];
       let lz = m[2] * px + m[6] * py + m[10] * pz + m[14];
 
-      // Modifiers: Twist
-      const twist = node.modifiers?.twistFactor ?? node.modifiers?.twist ?? 0.0;
+      // 1. Modifiers: Array Repetition (Polar & Linear)
+      const radialRepeat = node.modifiers?.radialRepeat;
+      if (radialRepeat && radialRepeat >= 2) {
+        const sector = (2.0 * Math.PI) / radialRepeat;
+        let angle = Math.atan2(lz, lx) + 0.5 * sector;
+        const r = Math.hypot(lx, lz);
+        angle = ((angle % sector) + sector) % sector - 0.5 * sector;
+        lx = r * Math.cos(angle);
+        lz = r * Math.sin(angle);
+      }
+
+      const linearCount = node.modifiers?.linearCount;
+      const linearSpacing = node.modifiers?.linearSpacing;
+      if (linearCount && linearCount >= 2 && linearSpacing && linearSpacing > 0.001) {
+        const halfLimit = (linearCount - 1.0) * 0.5;
+        const c = Math.max(-halfLimit, Math.min(halfLimit, Math.round(lx / linearSpacing)));
+        lx = lx - linearSpacing * c;
+      }
+
+      // 2. Modifiers: Twist & Bend
+      const twist = node.modifiers?.twistFactor ?? (node.modifiers as any)?.twist ?? 0.0;
       if (Math.abs(twist) > 0.001) {
         const c = Math.cos(twist * ly);
         const s = Math.sin(twist * ly);
@@ -482,11 +501,27 @@ function createSceneEvaluator(nodes: WorkerNodeData[]) {
         lz = nz;
       }
 
-      // Modifiers: Symmetry
-      const mirror = node.modifiers?.mirrorAxis;
-      if (mirror === 'x') lx = Math.abs(lx);
-      else if (mirror === 'y') ly = Math.abs(ly);
-      else if (mirror === 'z') lz = Math.abs(lz);
+      const bend = node.modifiers?.bendFactor ?? 0.0;
+      if (Math.abs(bend) > 0.001) {
+        const c = Math.cos(bend * lx);
+        const s = Math.sin(bend * lx);
+        const nx = c * lx - s * ly;
+        const ny = s * lx + c * ly;
+        lx = nx;
+        ly = ny;
+      }
+
+      // 3. Modifiers: Symmetry
+      if (node.modifiers?.mirrorAxes) {
+        if (node.modifiers.mirrorAxes[0]) lx = Math.abs(lx);
+        if (node.modifiers.mirrorAxes[1]) ly = Math.abs(ly);
+        if (node.modifiers.mirrorAxes[2]) lz = Math.abs(lz);
+      } else {
+        const mirror = node.modifiers?.mirrorAxis;
+        if (mirror === 'x') lx = Math.abs(lx);
+        else if (mirror === 'y') ly = Math.abs(ly);
+        else if (mirror === 'z') lz = Math.abs(lz);
+      }
 
       // Evaluate Primitive
       let d = evalPrimitive(node.type, lx, ly, lz, node.dimensions);

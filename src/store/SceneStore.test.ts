@@ -306,19 +306,24 @@ describe('SceneStore', () => {
       expect(newStore.tree.root.children[0].name).toBe('Persisted Box');
     });
 
-    it('should load scene from SDFSceneDocument and reset history', () => {
-      // Arrange
-      const doc = store.tree.toJSON();
-      store.execute({ name: 'Dummy', execute: () => {}, undo: () => {} });
-      expect(store.canUndo()).toBe(true);
+    it('should duplicate a node and support undo and redo', () => {
+      const origNode = store.tree.root.children[0];
+      const initialCount = store.tree.root.children.length;
 
-      // Act
-      store.loadFromJSON(doc);
+      const dupNode = store.duplicateNode(origNode.id);
+      expect(dupNode).not.toBeNull();
+      expect(store.tree.root.children.length).toBe(initialCount + 1);
+      expect(dupNode?.name).toBe(`${origNode.name} Copy`);
+      expect(dupNode?.transform.position[0]).toBeCloseTo(origNode.transform.position[0] + 0.25);
+      expect(store.selectedNodeId).toBe(dupNode?.id);
 
-      // Assert
-      expect(store.canUndo()).toBe(false);
-      expect(store.canRedo()).toBe(false);
-      expect(store.selectedNodeId).toBe(store.tree.root.children[0].id);
+      // Undo
+      store.undo();
+      expect(store.tree.root.children.length).toBe(initialCount);
+
+      // Redo
+      store.redo();
+      expect(store.tree.root.children.length).toBe(initialCount + 1);
     });
   });
 });

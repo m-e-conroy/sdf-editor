@@ -79,8 +79,13 @@ export interface ModifierConfig {
   shellThickness?: number;
   twist?: number;
   twistFactor?: number;
+  bendFactor?: number;
   elongation?: [number, number, number];
   mirrorAxis?: 'none' | 'x' | 'y' | 'z';
+  mirrorAxes?: [boolean, boolean, boolean]; // [X, Y, Z]
+  radialRepeat?: number; // count: 1 to 24
+  linearCount?: number;  // count: 1 to 16
+  linearSpacing?: number; // spacing: 0.2 to 4.0
 }
 
 export interface SDFNode {

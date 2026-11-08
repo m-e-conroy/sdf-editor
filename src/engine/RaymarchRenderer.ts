@@ -4,6 +4,7 @@ import { RaymarchMaterial } from './RaymarchMaterial';
 import { CSGTree } from '../tree/CSGTree';
 import { UniformPacker } from './UniformPacker';
 import { SceneStore } from '../store/SceneStore';
+import { ScenePicker } from './ScenePicker';
 
 export class RaymarchRenderer {
   private container: HTMLElement;
@@ -152,6 +153,16 @@ export class RaymarchRenderer {
       } else {
         this.transformControls.detach();
       }
+
+      if (this.tree) {
+        if (selected) {
+          const flattened = this.tree.flattenWithTransforms();
+          const selIdx = flattened.findIndex(item => item.node.id === selected.id);
+          this.material.setSelectedNodeIndex(selIdx);
+        } else {
+          this.material.setSelectedNodeIndex(-1);
+        }
+      }
     };
 
     this.sceneStore.addEventListener('selection-changed', syncGizmoToSelected);
@@ -175,9 +186,14 @@ export class RaymarchRenderer {
 
   private setupOrbitHandlers(): void {
     const dom = this.renderer.domElement;
+    let mouseDownPos = { x: 0, y: 0 };
+    let mouseDownTime = 0;
 
     dom.addEventListener('mousedown', (e) => {
       if (this.isGizmoDragging) return;
+      mouseDownPos = { x: e.clientX, y: e.clientY };
+      mouseDownTime = performance.now();
+
       if (e.button === 0) {
         this.isRotating = true;
       } else if (e.button === 1 || e.button === 2) {
@@ -210,9 +226,32 @@ export class RaymarchRenderer {
       }
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', (e) => {
+      const wasRotating = this.isRotating;
+      const wasPanning = this.isPanning;
       this.isRotating = false;
       this.isPanning = false;
+
+      // Check for clean click (distance < 5px and duration < 400ms) on primary button
+      if (
+        e.button === 0 &&
+        !this.isGizmoDragging &&
+        (wasRotating || wasPanning || e.target === dom)
+      ) {
+        const dist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+        const elapsed = performance.now() - mouseDownTime;
+        if (dist < 5 && elapsed < 400 && this.tree) {
+          const hitId = ScenePicker.pick(
+            e.clientX,
+            e.clientY,
+            dom.getBoundingClientRect(),
+            this.camera,
+            this.tree
+          );
+          // If hit a shape, select it; if hit background/floor, deselect (pass null)
+          this.sceneStore.selectNode(hitId);
+        }
+      }
     });
 
     dom.addEventListener('wheel', (e) => {
@@ -248,10 +287,19 @@ export class RaymarchRenderer {
     if (this.tree) {
       const packed = UniformPacker.pack(this.tree);
       this.material.updateNodes(packed);
+
+      const selected = this.sceneStore.getSelectedNode();
+      if (selected) {
+        const flattened = this.tree.flattenWithTransforms();
+        const selIdx = flattened.findIndex(item => item.node.id === selected.id);
+        this.material.setSelectedNodeIndex(selIdx);
+      } else {
+        this.material.setSelectedNodeIndex(-1);
+      }
     }
   }
 
-  // Lookdev & Matcap Controls
+  // Lookdev, Matcap & Visual Controls
   public setMatcapPreset(preset: number): void {
     this.material.setMatcapPreset(preset);
   }
@@ -264,6 +312,34 @@ export class RaymarchRenderer {
   public toggleAO(enable?: boolean): void {
     this.aoEnabled = enable !== undefined ? enable : !this.aoEnabled;
     this.material.setAOEnabled(this.aoEnabled);
+  }
+
+  public toggleGrid(enable?: boolean): void {
+    const next = enable !== undefined ? enable : !this.material.isShowGrid();
+    this.material.setShowGrid(next);
+  }
+
+  public isShowGrid(): boolean {
+    return this.material.isShowGrid();
+  }
+
+  public captureSnapshot(filename: string = 'sdf-studio-scene.png'): void {
+    const wasAttached = !!this.transformControls.object;
+    if (wasAttached) {
+      this.transformControls.detach();
+    }
+
+    this.renderer.render(this.scene, this.camera);
+    const dataUrl = this.renderer.domElement.toDataURL('image/png');
+
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataUrl;
+    link.click();
+
+    if (wasAttached) {
+      this.transformControls.attach(this.gizmoProxy);
+    }
   }
 
   // Camera Viewpoint Presets
