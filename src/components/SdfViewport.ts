@@ -1,18 +1,26 @@
-import { RaymarchRenderer } from '../engine/RaymarchRenderer';
+import {
+  RaymarchRenderer,
+  RenderSnapshotOptions,
+  RenderSnapshotResult,
+  RenderContactSheetOptions,
+  RenderContactSheetResult
+} from '../engine/RaymarchRenderer';
 import { SceneStore } from '../store/SceneStore';
 
 // Capability interface to ensure safe typing across renderer versions
-interface LookdevRenderer extends RaymarchRenderer {
+export interface LookdevRenderer extends RaymarchRenderer {
   setMatcapPreset(preset: number): void;
   setCameraView(view: 'front' | 'right' | 'top'): void;
   toggleShadows(enable?: boolean): void;
   toggleAO(enable?: boolean): void;
   toggleGrid(enable?: boolean): void;
   isShowGrid(): boolean;
-  captureSnapshot(filename?: string): void;
+  captureSnapshot(filename?: string): Promise<void>;
   focusOnSelected(): void;
   setGizmoMode(mode: 'translate' | 'rotate' | 'scale'): void;
   getGizmoMode(): 'translate' | 'rotate' | 'scale';
+  renderSnapshot(opts?: RenderSnapshotOptions): Promise<RenderSnapshotResult>;
+  renderContactSheet(opts?: RenderContactSheetOptions): Promise<RenderContactSheetResult>;
 }
 
 export class SdfViewport extends HTMLElement {

@@ -4,6 +4,7 @@
 
 import { CSGTree } from '../tree/CSGTree';
 import type { WorkerNodeData, WorkerExtractRequest } from '../workers/marchingCubes.worker';
+import { computeAutoBounds } from './MeshExporter';
 
 export interface ExtractionResult {
   positions: Float32Array;
@@ -84,7 +85,7 @@ export class MeshExtractor {
       const request: WorkerExtractRequest = {
         nodes,
         resolution: validResolution,
-        bounds
+        bounds: bounds ?? computeAutoBounds(tree)
       };
 
       worker.postMessage(request);

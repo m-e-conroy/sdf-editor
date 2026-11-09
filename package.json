@@ -12,7 +12,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "three": "^0.170.0"
+    "three": "^0.170.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/three": "^0.170.0",

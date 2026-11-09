@@ -2,11 +2,29 @@
 // SDF Studio 3D - High-Fidelity 3D Mesh Exporter (OBJ & Binary glTF 2.0 GLB)
 // ========================================================================
 
+import { CSGTree } from '../tree/CSGTree';
+import { SceneQueries } from './SceneQueries';
+
+/**
+ * Computes dynamic marching cubes bounding box with 10% padding margin.
+ */
+export function computeAutoBounds(
+  tree: CSGTree,
+  paddingRatio = 0.1
+): { min: [number, number, number]; max: [number, number, number] } {
+  const b = SceneQueries.getBounds(tree, undefined, false);
+  const padX = Math.max(0.2, b.size[0] * paddingRatio);
+  const padY = Math.max(0.2, b.size[1] * paddingRatio);
+  const padZ = Math.max(0.2, b.size[2] * paddingRatio);
+
+  return {
+    min: [b.min[0] - padX, b.min[1] - padY, b.min[2] - padZ],
+    max: [b.max[0] + padX, b.max[1] + padY, b.max[2] + padZ]
+  };
+}
+
 /**
  * Exports extracted mesh data to Wavefront .OBJ string format.
- * @param positions Interleaved [x, y, z, ...] vertex coordinates
- * @param normals Interleaved [nx, ny, nz, ...] vertex normal vectors
- * @param objectName Custom object identifier
  */
 export function exportOBJ(
   positions: Float32Array,
@@ -24,7 +42,7 @@ export function exportOBJ(
   lines.push(`o ${objectName}`);
   lines.push('');
 
-  // 1. Geometric Vertices (v x y z)
+  // 1. Geometric Vertices
   for (let i = 0; i < positions.length; i += 3) {
     const x = positions[i].toFixed(5);
     const y = positions[i + 1].toFixed(5);
@@ -34,7 +52,7 @@ export function exportOBJ(
 
   lines.push('');
 
-  // 2. Vertex Normals (vn nx ny nz)
+  // 2. Vertex Normals
   for (let i = 0; i < normals.length; i += 3) {
     const nx = normals[i].toFixed(5);
     const ny = normals[i + 1].toFixed(5);
@@ -45,7 +63,7 @@ export function exportOBJ(
   lines.push('');
   lines.push('s 1');
 
-  // 3. Triangular Faces (f v1//vn1 v2//vn2 v3//vn3 - 1-indexed)
+  // 3. Triangular Faces (1-indexed)
   for (let i = 1; i <= vertexCount; i += 3) {
     lines.push(`f ${i}//${i} ${i + 1}//${i + 1} ${i + 2}//${i + 2}`);
   }
@@ -54,8 +72,17 @@ export function exportOBJ(
 }
 
 /**
- * Converts a hex color string ('#rrggbb') into normalized RGB floats [0..1].
+ * Exports OBJ as an ArrayBuffer for direct binary file writing.
  */
+export function exportOBJBuffer(
+  positions: Float32Array,
+  normals: Float32Array,
+  objectName = 'SDF_Mesh'
+): ArrayBuffer {
+  const text = exportOBJ(positions, normals, objectName);
+  return new TextEncoder().encode(text).buffer;
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const cleanHex = hex.replace('#', '');
   const bigint = parseInt(cleanHex, 16);
@@ -67,20 +94,15 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 /**
- * Exports extracted mesh data directly to a valid Binary glTF 2.0 (.glb) container.
- * Strictly compliant with Khronos glTF 2.0 specification.
- * @param positions Interleaved [x, y, z, ...] vertex coordinates
- * @param normals Interleaved [nx, ny, nz, ...] vertex normal vectors
- * @param colorHex Optional surface material color
+ * Generates an in-memory binary glTF 2.0 (.glb) ArrayBuffer.
  */
-export async function exportGLB(
+export function generateGLBBuffer(
   positions: Float32Array,
   normals: Float32Array,
   colorHex = '#e2e8f0'
-): Promise<Blob> {
+): ArrayBuffer {
   const vertexCount = Math.floor(positions.length / 3);
 
-  // 1. Calculate bounding box for POSITION accessor
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
@@ -100,7 +122,6 @@ export async function exportGLB(
     minX = minY = minZ = maxX = maxY = maxZ = 0;
   }
 
-  // 2. Prepare Binary Buffer
   const posBytes = new Uint8Array(positions.buffer, positions.byteOffset, positions.byteLength);
   const normBytes = new Uint8Array(normals.buffer, normals.byteOffset, normals.byteLength);
 
@@ -108,18 +129,15 @@ export async function exportGLB(
   const normByteLength = normBytes.byteLength;
   const totalBinLength = posByteLength + normByteLength;
 
-  // 4-byte alignment padding for binary chunk
   const padBin = (4 - (totalBinLength % 4)) % 4;
   const binBufferLength = totalBinLength + padBin;
   const binBuffer = new Uint8Array(binBufferLength);
 
   binBuffer.set(posBytes, 0);
   binBuffer.set(normBytes, posByteLength);
-  // Padding bytes are 0x00 by default
 
   const [r, g, b] = hexToRgb(colorHex);
 
-  // 3. glTF 2.0 JSON Metadata Hierarchy
   const gltf = {
     asset: {
       version: '2.0',
@@ -196,49 +214,54 @@ export async function exportGLB(
   const encoder = new TextEncoder();
   const jsonEncoded = encoder.encode(jsonStr);
 
-  // Pad JSON chunk to 4-byte boundary with space (0x20)
   const padJson = (4 - (jsonEncoded.byteLength % 4)) % 4;
   const jsonChunkLength = jsonEncoded.byteLength + padJson;
   const jsonBuffer = new Uint8Array(jsonChunkLength);
   jsonBuffer.set(jsonEncoded, 0);
   for (let i = 0; i < padJson; i++) {
-    jsonBuffer[jsonEncoded.byteLength + i] = 0x20; // space character
+    jsonBuffer[jsonEncoded.byteLength + i] = 0x20;
   }
 
-  // 4. Construct Binary glTF (GLB) File Structure
-  // Header: 12 bytes
-  // Chunk 0 (JSON): 8 bytes header + jsonChunkLength
-  // Chunk 1 (BIN):  8 bytes header + binBufferLength
   const totalGlbLength = 12 + (8 + jsonChunkLength) + (8 + binBufferLength);
   const glbBuffer = new ArrayBuffer(totalGlbLength);
   const dataView = new DataView(glbBuffer);
 
   // GLB Header
-  dataView.setUint32(0, 0x46546c67, true); // Magic: 'glTF' (0x46546C67)
-  dataView.setUint32(4, 2, true);          // Version 2
-  dataView.setUint32(8, totalGlbLength, true); // Total length
+  dataView.setUint32(0, 0x46546c67, true); // Magic: 'glTF'
+  dataView.setUint32(4, 2, true);          // Version: 2
+  dataView.setUint32(8, totalGlbLength, true);
 
   // Chunk 0: JSON
   let byteOffset = 12;
-  dataView.setUint32(byteOffset, jsonChunkLength, true); // Chunk Length
-  dataView.setUint32(byteOffset + 4, 0x4e4f534a, true);  // Chunk Type: 'JSON'
+  dataView.setUint32(byteOffset, jsonChunkLength, true);
+  dataView.setUint32(byteOffset + 4, 0x4e4f534a, true); // 'JSON'
   byteOffset += 8;
   new Uint8Array(glbBuffer, byteOffset, jsonChunkLength).set(jsonBuffer);
   byteOffset += jsonChunkLength;
 
   // Chunk 1: BIN
-  dataView.setUint32(byteOffset, binBufferLength, true); // Chunk Length
-  dataView.setUint32(byteOffset + 4, 0x004e4942, true);  // Chunk Type: 'BIN\0'
+  dataView.setUint32(byteOffset, binBufferLength, true);
+  dataView.setUint32(byteOffset + 4, 0x004e4942, true); // 'BIN\0'
   byteOffset += 8;
   new Uint8Array(glbBuffer, byteOffset, binBufferLength).set(binBuffer);
 
+  return glbBuffer;
+}
+
+/**
+ * Exports extracted mesh data to binary glTF 2.0 (.glb) format Blob.
+ */
+export function exportGLB(
+  positions: Float32Array,
+  normals: Float32Array,
+  colorHex = '#e2e8f0'
+): Blob {
+  const glbBuffer = generateGLBBuffer(positions, normals, colorHex);
   return new Blob([glbBuffer], { type: 'model/gltf-binary' });
 }
 
 /**
  * Triggers a browser file download from a Blob or typed data.
- * @param blob Blob instance to trigger download for
- * @param filename Desired download filename
  */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);

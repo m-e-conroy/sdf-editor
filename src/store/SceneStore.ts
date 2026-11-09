@@ -1,5 +1,10 @@
+// ========================================================================
+// SDF Studio 3D - Scene Store with Command Pattern, Transactions & Revision
+// ========================================================================
+
 import { CSGTree } from '../tree/CSGTree';
 import type { SDFNode, SDFSceneDocument } from '../tree/types';
+import { validateSceneLimits, countLeaves, MAX_LEAVES } from '../engine/SceneLimits';
 
 export interface Command {
   name: string;
@@ -7,15 +12,48 @@ export interface Command {
   undo(): void;
 }
 
+export class CompositeCommand implements Command {
+  public name: string;
+  public commands: Command[];
+
+  constructor(name: string, commands: Command[] = []) {
+    this.name = name;
+    this.commands = commands;
+  }
+
+  public add(command: Command): void {
+    this.commands.push(command);
+  }
+
+  public execute(): void {
+    for (let i = 0; i < this.commands.length; i++) {
+      this.commands[i].execute();
+    }
+  }
+
+  public undo(): void {
+    // Reverse order for proper undo stack semantics
+    for (let i = this.commands.length - 1; i >= 0; i--) {
+      this.commands[i].undo();
+    }
+  }
+}
+
 export class SceneStore extends EventTarget {
   private static instance: SceneStore | null = null;
   public tree: CSGTree;
   public selectedNodeId: string | null = null;
 
+  // Monotonic revision counter: increments on every scene mutation, undo, or redo
+  public revision: number = 0;
+
   // Command Pattern History Stack
   private undoStack: Command[] = [];
   private redoStack: Command[] = [];
   private maxHistory = 50;
+
+  // Active transaction container
+  private currentTransaction: CompositeCommand | null = null;
 
   private constructor() {
     super();
@@ -33,13 +71,52 @@ export class SceneStore extends EventTarget {
     return SceneStore.instance;
   }
 
+  /**
+   * Batches multiple mutations during fn() into a single CompositeCommand.
+   * Ensures N atomic edits = 1 undo step and 1 revision increment.
+   */
+  public transaction(name: string, fn: () => void): void {
+    if (this.currentTransaction) {
+      // Nested transaction: participate in the existing parent transaction
+      fn();
+      return;
+    }
+
+    const composite = new CompositeCommand(name);
+    this.currentTransaction = composite;
+    try {
+      fn();
+    } finally {
+      this.currentTransaction = null;
+    }
+
+    if (composite.commands.length > 0) {
+      this.undoStack.push(composite);
+      if (this.undoStack.length > this.maxHistory) {
+        this.undoStack.shift();
+      }
+      this.redoStack = []; // Clear redo on new action
+      this.revision++;
+      this.notifySceneChanged();
+      this.notifyHistoryChanged();
+    }
+  }
+
   public execute(command: Command): void {
+    if (this.currentTransaction) {
+      // Execute mutation immediately to maintain state during transaction
+      command.execute();
+      this.currentTransaction.add(command);
+      return;
+    }
+
     command.execute();
     this.undoStack.push(command);
     if (this.undoStack.length > this.maxHistory) {
       this.undoStack.shift();
     }
     this.redoStack = []; // Clear redo on new action
+    this.revision++;
     this.notifySceneChanged();
     this.notifyHistoryChanged();
   }
@@ -49,6 +126,7 @@ export class SceneStore extends EventTarget {
     if (!command) return false;
     command.undo();
     this.redoStack.push(command);
+    this.revision++;
     this.notifySceneChanged();
     this.notifyHistoryChanged();
     return true;
@@ -59,6 +137,7 @@ export class SceneStore extends EventTarget {
     if (!command) return false;
     command.execute();
     this.undoStack.push(command);
+    this.revision++;
     this.notifySceneChanged();
     this.notifyHistoryChanged();
     return true;
@@ -75,6 +154,15 @@ export class SceneStore extends EventTarget {
   // Node Mutations wrapped in Commands
   public addNode(node: SDFNode, parentId?: string): void {
     const pId = parentId || this.tree.root.id;
+    const currentLimits = validateSceneLimits(this.tree);
+    const leavesToAdd = countLeaves(node);
+
+    if (currentLimits.leafCount + leavesToAdd > MAX_LEAVES) {
+      throw new Error(
+        `Scene limit exceeded: Cannot add ${leavesToAdd} primitive(s). Current: ${currentLimits.leafCount}/${MAX_LEAVES} max leaf primitives.`
+      );
+    }
+
     this.execute({
       name: `Add ${node.name}`,
       execute: () => {
@@ -115,6 +203,14 @@ export class SceneStore extends EventTarget {
     const node = this.tree.findNode(nodeId);
     const parent = this.tree.findParent(nodeId);
     if (!node || !parent) return null;
+
+    const currentLimits = validateSceneLimits(this.tree);
+    const leavesToAdd = countLeaves(node);
+    if (currentLimits.leafCount + leavesToAdd > MAX_LEAVES) {
+      throw new Error(
+        `Scene limit exceeded: Duplication requires ${leavesToAdd} leaf primitive(s) (${currentLimits.leafCount + leavesToAdd}/${MAX_LEAVES} max).`
+      );
+    }
 
     let duplicatedNode: SDFNode | null = null;
 
@@ -186,18 +282,28 @@ export class SceneStore extends EventTarget {
   }
 
   private notifySceneChanged(): void {
-    this.dispatchEvent(new CustomEvent('scene-changed', { detail: { tree: this.tree } }));
+    this.dispatchEvent(
+      new CustomEvent('scene-changed', {
+        detail: { tree: this.tree, revision: this.revision }
+      })
+    );
     this.saveToLocalStorage();
   }
 
   private notifyHistoryChanged(): void {
-    this.dispatchEvent(new CustomEvent('history-changed', { detail: { canUndo: this.canUndo(), canRedo: this.canRedo() } }));
+    this.dispatchEvent(
+      new CustomEvent('history-changed', {
+        detail: { canUndo: this.canUndo(), canRedo: this.canRedo(), revision: this.revision }
+      })
+    );
   }
 
   public saveToLocalStorage(): void {
     try {
-      const json = JSON.stringify(this.tree.toJSON());
-      localStorage.setItem('sdf_studio_active_scene', json);
+      if (typeof localStorage !== 'undefined') {
+        const json = JSON.stringify(this.tree.toJSON());
+        localStorage.setItem('sdf_studio_active_scene', json);
+      }
     } catch (e) {
       console.warn('Failed to save scene to localStorage', e);
     }
@@ -205,12 +311,15 @@ export class SceneStore extends EventTarget {
 
   public loadFromLocalStorage(): boolean {
     try {
-      const saved = localStorage.getItem('sdf_studio_active_scene');
-      if (saved) {
-        const doc = JSON.parse(saved);
-        this.tree.fromJSON(doc);
-        this.notifySceneChanged();
-        return true;
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem('sdf_studio_active_scene');
+        if (saved) {
+          const doc = JSON.parse(saved);
+          this.tree.fromJSON(doc);
+          this.revision++;
+          this.notifySceneChanged();
+          return true;
+        }
       }
     } catch (e) {
       console.warn('Failed to load scene from localStorage', e);
@@ -223,6 +332,7 @@ export class SceneStore extends EventTarget {
       this.tree.fromJSON(doc);
       this.undoStack = [];
       this.redoStack = [];
+      this.revision++;
       if (this.tree.root.children.length > 0) {
         this.selectedNodeId = this.tree.root.children[0].id;
       } else {
@@ -233,4 +343,3 @@ export class SceneStore extends EventTarget {
     }
   }
 }
-

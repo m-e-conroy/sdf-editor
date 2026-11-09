@@ -1,7 +1,7 @@
 # SDF Studio 3D - Sprint Backlog & Task Tracker
 
 > **Project:** SDF Studio 3D  
-> **Status:** All Milestones (1 through 9) Complete - Production Ready  
+> **Status:** Milestone 10 In Progress (Milestones 1 through 9 Complete)  
 > **Manager:** Project Manager Agent  
 > **Target Path:** `projects/sdf-editor/`
 
@@ -82,6 +82,20 @@
 | **M9.4** | CAD Floor Grid, Selection Rim Highlight & Metalness Shading         | `creative-director`  | ✅ Complete | X/Z axis lines, radial fade, grid toggle, selection fresnel accent |
 | **M9.5** | Inspector Controls for Modifiers/Metalness & 1-Click PNG Snapshot    | `frontend-developer` | ✅ Complete | Multi-axis pills, array sliders, gizmo-free high-res screenshot   |
 | **M9.6** | Milestone 9 Test Suite & Quality Gate Verification                   | `test-engineer`      | ✅ Complete | 87/87 unit tests passing, 0 TypeScript errors, clean prod build    |
+
+---
+
+## Milestone 10: MCP Server, Live Agent Bridge & Nested CSG Groups - 🔄 In Progress
+
+| ID        | Task Description                                                     | Owner                |   Status    | Notes                                                              |
+| :-------- | :------------------------------------------------------------------- | :------------------- | :---------: | :----------------------------------------------------------------- |
+| **M10.0** | Engine Prerequisites (`CompositeCommand`, revision, `SdfEvaluator`, `SceneQueries`, `shared/protocol`) | `game-developer` / `backend-developer` | ✅ Complete | Single undo step per transaction, bounds/volume, shared schemas, 123 tests passing |
+| **M10.1** | Nested CSG Groups (`group` node, `CSGCompiler`, GPU Stack VM, v1→v2 migration) | `game-developer` | ⏳ Pending | Postfix instruction compiler, GPU stack VM & CPU parity            |
+| **M10.2** | Outliner & Inspector Group UX + Group Palette Icon                   | `frontend-developer` / `creative-director` | ⏳ Pending | `Ctrl+G` / `Ctrl+Shift+G`, reorder, group inspector & icon         |
+| **M10.3** | In-Browser `AgentBridge`, `BridgeDispatcher` & HUD Pairing Pill      | `frontend-developer` | ⏳ Pending | Opt-in WebSocket client, session parking, snapshot return hook     |
+| **M10.4** | MCP Server, WebSocket Hub/Relay & Safe File Writer (`mcp-server/`)   | `backend-developer`  | ⏳ Pending | 19 tools, 4 resources, 2 prompts, Hub/Relay promotion, safe writes |
+| **M10.5** | Declarative Scene Recipes & Sensory Tools (Snapshot, Bounds, Sample) | `backend-developer` / `game-developer` | ⏳ Pending | Atomic recipe builder with `dryRun`, 2×2 contact sheet, AABB/dist  |
+| **M10.6** | Security Audit, Contract Tests & Playwright E2E Verification Gate    | `security-auditor` / `test-engineer` | ⏳ Pending | Hub auth/origin tests, VM parity tests, E2E MCP mug build & export |
 
 ---
 
