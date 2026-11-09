@@ -1,7 +1,7 @@
 # SDF Studio 3D - Sprint Backlog & Task Tracker
 
 > **Project:** SDF Studio 3D  
-> **Status:** Milestone 10 In Progress (Milestones 1 through 9 Complete)  
+> **Status:** Milestone 10 Complete (Milestones 1 through 10 Complete)  
 > **Manager:** Project Manager Agent  
 > **Target Path:** `projects/sdf-editor/`
 
@@ -85,17 +85,27 @@
 
 ---
 
-## Milestone 10: MCP Server, Live Agent Bridge & Nested CSG Groups - 🔄 In Progress
+## Milestone 10: MCP Server, Live Agent Bridge & Nested CSG Groups - ✅ Complete
 
 | ID        | Task Description                                                     | Owner                |   Status    | Notes                                                              |
 | :-------- | :------------------------------------------------------------------- | :------------------- | :---------: | :----------------------------------------------------------------- |
 | **M10.0** | Engine Prerequisites (`CompositeCommand`, revision, `SdfEvaluator`, `SceneQueries`, `shared/protocol`) | `game-developer` / `backend-developer` | ✅ Complete | Single undo step per transaction, bounds/volume, shared schemas, 123 tests passing |
-| **M10.1** | Nested CSG Groups (`group` node, `CSGCompiler`, GPU Stack VM, v1→v2 migration) | `game-developer` | ⏳ Pending | Postfix instruction compiler, GPU stack VM & CPU parity            |
-| **M10.2** | Outliner & Inspector Group UX + Group Palette Icon                   | `frontend-developer` / `creative-director` | ⏳ Pending | `Ctrl+G` / `Ctrl+Shift+G`, reorder, group inspector & icon         |
-| **M10.3** | In-Browser `AgentBridge`, `BridgeDispatcher` & HUD Pairing Pill      | `frontend-developer` | ⏳ Pending | Opt-in WebSocket client, session parking, snapshot return hook     |
-| **M10.4** | MCP Server, WebSocket Hub/Relay & Safe File Writer (`mcp-server/`)   | `backend-developer`  | ⏳ Pending | 19 tools, 4 resources, 2 prompts, Hub/Relay promotion, safe writes |
-| **M10.5** | Declarative Scene Recipes & Sensory Tools (Snapshot, Bounds, Sample) | `backend-developer` / `game-developer` | ⏳ Pending | Atomic recipe builder with `dryRun`, 2×2 contact sheet, AABB/dist  |
-| **M10.6** | Security Audit, Contract Tests & Playwright E2E Verification Gate    | `security-auditor` / `test-engineer` | ⏳ Pending | Hub auth/origin tests, VM parity tests, E2E MCP mug build & export |
+| **M10.1** | Nested CSG Groups (`group` node, `CSGCompiler`, GPU Stack VM, v1→v2 migration) | `game-developer` | ✅ Complete | Postfix instruction compiler, GPU stack VM & CPU parity, 1000-pt equivalence tests |
+| **M10.2** | Outliner & Inspector Group UX + Group Palette Icon                   | `frontend-developer` / `creative-director` | ✅ Complete | `Ctrl+G` / `Ctrl+Shift+G`, reorder, group inspector & CAD icon     |
+| **M10.3** | In-Browser `AgentBridge`, `BridgeDispatcher` & HUD Pairing Pill      | `frontend-developer` | ✅ Complete | Native WebSocket, session parking, 4-state HUD pill, pairing popover |
+| **M10.4** | MCP Server, WebSocket Hub/Relay & Safe File Writer (`mcp-server/`)   | `backend-developer`  | ✅ Complete | 19 tools, 4 resources, 2 prompts, Hub/Relay promotion, safe writes |
+| **M10.5** | Declarative Scene Recipes & Sensory Tools (Snapshot, Bounds, Sample) | `backend-developer` / `game-developer` | ✅ Complete | Atomic recipe builder with `dryRun`, 2×2 contact sheet, AABB/dist  |
+| **M10.6** | Security Audit, Contract Tests & Verification Suite                  | `security-auditor` / `test-engineer` | ✅ Complete | Sandboxed SafeFileWriter, optimistic revision lock, comprehensive tests |
+
+---
+
+## Milestone 11: Agent Ecosystem Skills & Production Character Recipes - ✅ Complete
+
+| ID        | Task Description                                                     | Owner                |   Status    | Notes                                                              |
+| :-------- | :------------------------------------------------------------------- | :------------------- | :---------: | :----------------------------------------------------------------- |
+| **M11.1** | 32-Leaf Street Fighter CSG Model Recipe                              | `3d-artist`          | ✅ Complete | `FIGHTER_CHARACTER_RECIPE` in `FighterPreset.ts`, tests & menu bar |
+| **M11.2** | SDF Studio Bridge Agent Skill (`.agents/skills/sdf-studio-bridge/`)  | `project-manager`    | ✅ Complete | Frontmatter, 19 RPC tools, 22 primitives, validator & sync         |
+| **M11.3** | Agent Persona Integration (`3d-artist`, `game-developer`)           | `project-manager`    | ✅ Complete | Frontmatter `skills:` & Recommended Skills sections updated        |
 
 ---
 

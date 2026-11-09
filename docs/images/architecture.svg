@@ -1,0 +1,234 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 680" width="100%" height="100%" style="background:#0e0e11; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="agent-box" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="bridge-box" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14532d"/>
+      <stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+    <linearGradient id="ui-box" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f2937"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="core-box" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="gpu-box" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4c1d95"/>
+      <stop offset="100%" stop-color="#2e1065"/>
+    </linearGradient>
+    <linearGradient id="cpu-box" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c2d12"/>
+      <stop offset="100%" stop-color="#431407"/>
+    </linearGradient>
+    <linearGradient id="orange-header" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ea7600"/>
+      <stop offset="100%" stop-color="#ff9429"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,0.5)"/>
+    </filter>
+  </defs>
+
+  <!-- Title & Subtitle -->
+  <text x="550" y="32" fill="#ffffff" font-size="20" font-weight="800" text-anchor="middle" letter-spacing="-0.02em">⚡ SDF Studio 3D Architecture</text>
+  <text x="550" y="52" fill="#94a3b8" font-size="12" text-anchor="middle">Real-Time WebGL2 Sphere Tracing, Native Web Components &amp; Model Context Protocol (MCP)</text>
+
+  <!-- 1. External AI Host & MCP Server Layer (Top Left) -->
+  <g transform="translate(40, 75)" filter="url(#shadow)">
+    <rect x="0" y="0" width="480" height="155" rx="8" fill="url(#agent-box)" stroke="#4338ca" stroke-width="1.2"/>
+    <rect x="0" y="0" width="480" height="28" rx="8" fill="#312e81"/>
+    <text x="14" y="19" fill="#c7d2fe" font-size="12" font-weight="700">🤖 AI AGENT &amp; MCP SERVER LAYER (Node.js ESM)</text>
+
+    <!-- Host Node -->
+    <rect x="14" y="38" width="210" height="46" rx="6" fill="#1e1b4b" stroke="#6366f1"/>
+    <text x="24" y="56" fill="#e0e7ff" font-size="11" font-weight="700">External LLM Agent</text>
+    <text x="24" y="73" fill="#a5b4fc" font-size="10">Claude Desktop, Cursor, Antigravity</text>
+
+    <!-- Stdio Arrow -->
+    <path d="M224 61 L256 61" stroke="#818cf8" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="256,61 248,57 248,65" fill="#818cf8"/>
+    <text x="240" y="53" fill="#c7d2fe" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">Stdio</text>
+
+    <!-- MCP Server Node -->
+    <rect x="256" y="38" width="210" height="46" rx="6" fill="#1e1b4b" stroke="#6366f1"/>
+    <text x="266" y="56" fill="#e0e7ff" font-size="11" font-weight="700">@sdf-studio/mcp-server</text>
+    <text x="266" y="73" fill="#a5b4fc" font-size="10">19 Tools | 4 Resources | 2 Prompts</text>
+
+    <!-- Sub-components inside MCP Server -->
+    <rect x="14" y="94" width="210" height="46" rx="6" fill="#0f172a" stroke="#334155"/>
+    <text x="24" y="112" fill="#cbd5e1" font-size="11" font-weight="600">SafeFileWriter</text>
+    <text x="24" y="129" fill="#64748b" font-size="9">Sandboxed .glb, .obj, .glsl, snapshots</text>
+
+    <rect x="256" y="94" width="210" height="46" rx="6" fill="#0f172a" stroke="#334155"/>
+    <text x="266" y="112" fill="#cbd5e1" font-size="11" font-weight="600">StudioHub Relay</text>
+    <text x="266" y="129" fill="#22c55e" font-size="9" font-family="'JetBrains Mono', monospace">ws://127.0.0.1:8765 (Port/Relay)</text>
+  </g>
+
+  <!-- 2. Browser WebSocket Bridge Layer (Top Right) -->
+  <g transform="translate(580, 75)" filter="url(#shadow)">
+    <rect x="0" y="0" width="480" height="155" rx="8" fill="url(#bridge-box)" stroke="#15803d" stroke-width="1.2"/>
+    <rect x="0" y="0" width="480" height="28" rx="8" fill="#166534"/>
+    <text x="14" y="19" fill="#bbf7d0" font-size="12" font-weight="700">🌐 BROWSER AGENT BRIDGE (src/bridge/)</text>
+
+    <!-- AgentBridge Node -->
+    <rect x="14" y="38" width="210" height="102" rx="6" fill="#064e3b" stroke="#22c55e"/>
+    <text x="24" y="58" fill="#f0fdf4" font-size="12" font-weight="700">AgentBridge.ts</text>
+    <text x="24" y="78" fill="#86efac" font-size="10">• Auto-reconnect &amp; backoff</text>
+    <text x="24" y="95" fill="#86efac" font-size="10">• Token Auth (#bridge=xyz)</text>
+    <text x="24" y="112" fill="#86efac" font-size="10">• Heartbeat &amp; Watchdog timer</text>
+    <text x="24" y="129" fill="#86efac" font-size="10">• Status: listening/connected</text>
+
+    <!-- Arrow between AgentBridge & Dispatcher -->
+    <path d="M224 89 L256 89" stroke="#4ade80" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="256,89 248,85 248,93" fill="#4ade80"/>
+
+    <!-- BridgeDispatcher Node -->
+    <rect x="256" y="38" width="210" height="102" rx="6" fill="#064e3b" stroke="#22c55e"/>
+    <text x="266" y="58" fill="#f0fdf4" font-size="12" font-weight="700">BridgeDispatcher.ts</text>
+    <text x="266" y="78" fill="#86efac" font-size="10">• Routes 19 RPC method calls</text>
+    <text x="266" y="95" fill="#86efac" font-size="10">• Enforces Single-Undo tx</text>
+    <text x="266" y="112" fill="#86efac" font-size="10">• Monotonic revision check</text>
+    <text x="266" y="129" fill="#86efac" font-size="10">• Viewport snapshot capture</text>
+  </g>
+
+  <!-- WebSocket Pipe Connecting StudioHub to AgentBridge -->
+  <path d="M466 182 L594 182" stroke="#22c55e" stroke-width="2.5" stroke-dasharray="6 3"/>
+  <circle cx="530" cy="182" r="14" fill="#13231a" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="530" y="186" fill="#86efac" font-size="9" text-anchor="middle" font-family="'JetBrains Mono', monospace">WS</text>
+
+  <!-- 3. Native Web Components UI Layer (Middle) -->
+  <g transform="translate(40, 255)" filter="url(#shadow)">
+    <rect x="0" y="0" width="1020" height="110" rx="8" fill="url(#ui-box)" stroke="#374151" stroke-width="1.2"/>
+    <rect x="0" y="0" width="1020" height="26" rx="8" fill="#1f2937"/>
+    <text x="14" y="18" fill="#f3f4f6" font-size="12" font-weight="700">🎨 USER INTERFACE (Framework-Free W3C Native Web Components)</text>
+
+    <!-- Component Pills -->
+    <g transform="translate(14, 38)" font-size="10" font-weight="600">
+      <!-- SdfApp -->
+      <rect x="0" y="0" width="130" height="60" rx="5" fill="#111827" stroke="#ea7600" stroke-width="1.4"/>
+      <text x="65" y="24" fill="#ff9429" text-anchor="middle" font-weight="700">&lt;sdf-app&gt;</text>
+      <text x="65" y="44" fill="#9ca3af" text-anchor="middle">Root Coordinator</text>
+
+      <!-- SdfMenuBar -->
+      <rect x="142" y="0" width="130" height="60" rx="5" fill="#111827" stroke="#4b5563"/>
+      <text x="207" y="24" fill="#e5e7eb" text-anchor="middle">&lt;sdf-menu-bar&gt;</text>
+      <text x="207" y="44" fill="#9ca3af" text-anchor="middle">File, History &amp; Theme</text>
+
+      <!-- SdfViewport -->
+      <rect x="284" y="0" width="150" height="60" rx="5" fill="#111827" stroke="#3b82f6" stroke-width="1.4"/>
+      <text x="359" y="24" fill="#60a5fa" text-anchor="middle">&lt;sdf-viewport&gt;</text>
+      <text x="359" y="44" fill="#9ca3af" text-anchor="middle">WebGL2 Raymarch &amp; HUD</text>
+
+      <!-- SdfOutliner -->
+      <rect x="446" y="0" width="130" height="60" rx="5" fill="#111827" stroke="#4b5563"/>
+      <text x="511" y="24" fill="#e5e7eb" text-anchor="middle">&lt;sdf-outliner&gt;</text>
+      <text x="511" y="44" fill="#9ca3af" text-anchor="middle">CSG Tree Hierarchy</text>
+
+      <!-- SdfInspector -->
+      <rect x="588" y="0" width="130" height="60" rx="5" fill="#111827" stroke="#4b5563"/>
+      <text x="653" y="24" fill="#e5e7eb" text-anchor="middle">&lt;sdf-inspector&gt;</text>
+      <text x="653" y="44" fill="#9ca3af" text-anchor="middle">Live Scrubbers &amp; PBR</text>
+
+      <!-- SdfShapePalette -->
+      <rect x="730" y="0" width="130" height="60" rx="5" fill="#111827" stroke="#10b981"/>
+      <text x="795" y="24" fill="#34d399" text-anchor="middle">&lt;sdf-shape-palette&gt;</text>
+      <text x="795" y="44" fill="#9ca3af" text-anchor="middle">22 Primitives Picker</text>
+
+      <!-- SdfExportModal -->
+      <rect x="872" y="0" width="120" height="60" rx="5" fill="#111827" stroke="#4b5563"/>
+      <text x="932" y="24" fill="#e5e7eb" text-anchor="middle">&lt;sdf-export-modal&gt;</text>
+      <text x="932" y="44" fill="#9ca3af" text-anchor="middle">.GLB / .OBJ Export</text>
+    </g>
+  </g>
+
+  <!-- Connect Dispatcher to State Layer -->
+  <path d="M836 230 L836 248 L320 248 L320 380" stroke="#ea7600" stroke-width="1.8" fill="none" stroke-dasharray="4 2"/>
+
+  <!-- 4. Reactive State & Core AST Layer (Bottom Left) -->
+  <g transform="translate(40, 390)" filter="url(#shadow)">
+    <rect x="0" y="0" width="480" height="260" rx="8" fill="url(#core-box)" stroke="#4338ca" stroke-width="1.2"/>
+    <rect x="0" y="0" width="480" height="26" rx="8" fill="#312e81"/>
+    <text x="14" y="18" fill="#c7d2fe" font-size="12" font-weight="700">💾 REACTIVE STATE &amp; CSG AST (src/store/ &amp; src/tree/)</text>
+
+    <!-- SceneStore -->
+    <rect x="14" y="38" width="452" height="68" rx="6" fill="#1e1b4b" stroke="#6366f1"/>
+    <text x="26" y="58" fill="#ffffff" font-size="12" font-weight="700">SceneStore (Singleton EventTarget)</text>
+    <text x="26" y="78" fill="#a5b4fc" font-size="10">• Monotonic revision counter (prevents race conditions with MCP)</text>
+    <text x="26" y="94" fill="#a5b4fc" font-size="10">• CompositeCommand stack (50-step undo/redo &amp; atomic multi-edit transactions)</text>
+
+    <!-- CSGTree -->
+    <rect x="14" y="118" width="452" height="126" rx="6" fill="#111827" stroke="#374151"/>
+    <text x="26" y="138" fill="#f3f4f6" font-size="12" font-weight="700">CSG Abstract Syntax Tree (CSGTree.ts &amp; types.ts)</text>
+    <text x="26" y="158" fill="#9ca3af" font-size="10">• Hierarchical tree of Groups and 22 Primitives with local Transform3D</text>
+    <text x="26" y="176" fill="#9ca3af" font-size="10">• CSG Booleans: Union (∪), Difference (∖), Intersection (∩)</text>
+    <text x="26" y="194" fill="#a855f7" font-size="10">• Inigo Quilez Smooth Polynomial Minimum (smin) with Material Blending</text>
+    <text x="26" y="212" fill="#38bdf8" font-size="10">• Modifiers: Bend (depth mapping), Twist, Radial Repeat, Mirror Symmetry, Shell</text>
+    <text x="26" y="230" fill="#22c55e" font-size="10" font-weight="600">Strict Budget Guardrails: MAX_LEAVES = 32 | MAX_INSTRUCTIONS = 64</text>
+  </g>
+
+  <!-- Connect CSGTree to GPU & CPU Extraction -->
+  <path d="M520 480 L580 480" stroke="#ea7600" stroke-width="2.5" stroke-linecap="round"/>
+  <polygon points="580,480 570,475 570,485" fill="#ea7600"/>
+
+  <!-- 5. GPU & CPU Execution Engines (Bottom Right) -->
+  <g transform="translate(580, 390)" filter="url(#shadow)">
+    <!-- GPU Sphere Tracing -->
+    <rect x="0" y="0" width="480" height="124" rx="8" fill="url(#gpu-box)" stroke="#7c3aed" stroke-width="1.2"/>
+    <rect x="0" y="0" width="480" height="26" rx="8" fill="#5b21b6"/>
+    <text x="14" y="18" fill="#ede9fe" font-size="12" font-weight="700">⚡ GPU REAL-TIME SPHERE TRACING (WebGL2 Quad)</text>
+    
+    <g transform="translate(14, 36)" font-size="10">
+      <rect x="0" y="0" width="138" height="74" rx="5" fill="#2e1065" stroke="#a78bfa"/>
+      <text x="69" y="22" fill="#ffffff" font-weight="700" text-anchor="middle">UniformPacker</text>
+      <text x="69" y="42" fill="#c4b5fd" text-anchor="middle">Packs 32 nodes into</text>
+      <text x="69" y="58" fill="#c4b5fd" text-anchor="middle">Vec4 / Mat4 arrays</text>
+
+      <path d="M140 37 L154 37" stroke="#a78bfa" stroke-width="2"/>
+
+      <rect x="156" y="0" width="138" height="74" rx="5" fill="#2e1065" stroke="#a78bfa"/>
+      <text x="225" y="22" fill="#ffffff" font-weight="700" text-anchor="middle">RaymarchMaterial</text>
+      <text x="225" y="42" fill="#c4b5fd" text-anchor="middle">Three.js ShaderMat</text>
+      <text x="225" y="58" fill="#c4b5fd" text-anchor="middle">raymarch.frag.glsl</text>
+
+      <path d="M296 37 L310 37" stroke="#a78bfa" stroke-width="2"/>
+
+      <rect x="312" y="0" width="140" height="74" rx="5" fill="#2e1065" stroke="#a78bfa"/>
+      <text x="382" y="22" fill="#22c55e" font-weight="700" text-anchor="middle">60 FPS Viewport</text>
+      <text x="382" y="42" fill="#c4b5fd" text-anchor="middle">Soft Shadows &amp; AO</text>
+      <text x="382" y="58" fill="#c4b5fd" text-anchor="middle">5 Lookdev MatCaps</text>
+    </g>
+
+    <!-- CPU Extraction & Sensing -->
+    <g transform="translate(0, 136)">
+      <rect x="0" y="0" width="480" height="124" rx="8" fill="url(#cpu-box)" stroke="#ea580c" stroke-width="1.2"/>
+      <rect x="0" y="0" width="480" height="26" rx="8" fill="#9a3412"/>
+      <text x="14" y="18" fill="#ffedd5" font-size="12" font-weight="700">⚙️ CPU MARCHING CUBES POLYGONIZER &amp; SPATIAL SENSING</text>
+
+      <g transform="translate(14, 36)" font-size="10">
+        <rect x="0" y="0" width="138" height="74" rx="5" fill="#431407" stroke="#fb923c"/>
+        <text x="69" y="20" fill="#ffffff" font-weight="700" text-anchor="middle">SceneQueries</text>
+        <text x="69" y="38" fill="#fed7aa" text-anchor="middle">&amp; SdfEvaluator</text>
+        <text x="69" y="54" fill="#fed7aa" text-anchor="middle">Distance sampling</text>
+        <text x="69" y="68" fill="#fed7aa" text-anchor="middle">&amp; AABB/Volume queries</text>
+
+        <rect x="150" y="0" width="144" height="74" rx="5" fill="#431407" stroke="#fb923c"/>
+        <text x="222" y="20" fill="#ffffff" font-weight="700" text-anchor="middle">Web Worker</text>
+        <text x="222" y="38" fill="#fed7aa" text-anchor="middle">marchingCubes.worker</text>
+        <text x="222" y="54" fill="#fed7aa" text-anchor="middle">32³ / 64³ / 128³ grid</text>
+        <text x="222" y="68" fill="#fed7aa" text-anchor="middle">Non-blocking thread</text>
+
+        <rect x="306" y="0" width="146" height="74" rx="5" fill="#431407" stroke="#fb923c"/>
+        <text x="379" y="20" fill="#ffffff" font-weight="700" text-anchor="middle">Exporters</text>
+        <text x="379" y="38" fill="#fed7aa" text-anchor="middle">Pure Binary .GLB</text>
+        <text x="379" y="54" fill="#fed7aa" text-anchor="middle">Wavefront .OBJ</text>
+        <text x="379" y="68" fill="#fed7aa" text-anchor="middle">Standalone Shadertoy</text>
+      </g>
+    </g>
+  </g>
+</svg>
+

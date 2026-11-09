@@ -731,3 +731,7 @@ export const PRIMITIVE_SCHEMAS: Record<PrimitiveType, PrimitiveSchema> = {
     }
   }
 };
+
+export const PRIMITIVE_REGISTRY = PRIMITIVE_SCHEMAS;
+
+

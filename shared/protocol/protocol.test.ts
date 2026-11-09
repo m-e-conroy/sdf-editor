@@ -216,3 +216,4 @@ describe('@sdf-studio/protocol Method Schemas', () => {
     expect(() => schema.parse({ points: tooMany })).toThrow();
   });
 });
+

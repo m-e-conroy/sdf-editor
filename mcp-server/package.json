@@ -1,0 +1,23 @@
+{
+  "name": "@sdf-studio/mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) Server & Live Studio Bridge for SDF Studio 3D",
+  "type": "module",
+  "bin": {
+    "sdf-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "ws": "^8.18.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.6.3"
+  }
+}

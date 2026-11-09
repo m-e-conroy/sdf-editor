@@ -188,15 +188,7 @@ export class RaymarchRenderer {
         this.transformControls.detach();
       }
 
-      if (this.tree) {
-        if (selected) {
-          const flattened = this.tree.flattenWithTransforms();
-          const selIdx = flattened.findIndex(item => item.node.id === selected.id);
-          this.material.setSelectedNodeIndex(selIdx);
-        } else {
-          this.material.setSelectedNodeIndex(-1);
-        }
-      }
+      this.syncUniforms();
     };
 
     this.sceneStore.addEventListener('selection-changed', syncGizmoToSelected);
@@ -282,8 +274,21 @@ export class RaymarchRenderer {
             this.camera,
             this.tree
           );
-          // If hit a shape, select it; if hit background/floor, deselect (pass null)
-          this.sceneStore.selectNode(hitId);
+          if (hitId) {
+            if (e.altKey) {
+              // Alt+Click selects parent group (unless parent is root)
+              const parent = this.tree.findParent(hitId);
+              if (parent && parent.id !== this.tree.root.id && parent.kind === 'group') {
+                this.sceneStore.selectNode(parent.id);
+              } else {
+                this.sceneStore.selectNode(hitId);
+              }
+            } else {
+              this.sceneStore.selectNode(hitId);
+            }
+          } else {
+            this.sceneStore.selectNode(null);
+          }
         }
       }
     });
@@ -319,7 +324,8 @@ export class RaymarchRenderer {
 
   public syncUniforms(): void {
     if (this.tree) {
-      const packed = UniformPacker.pack(this.tree);
+      const selectedId = this.sceneStore.selectedNodeId;
+      const packed = UniformPacker.pack(this.tree, selectedId);
       this.material.updateNodes(packed);
 
       const selected = this.sceneStore.getSelectedNode();

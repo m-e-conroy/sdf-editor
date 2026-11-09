@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { CSGTree } from '../../tree/CSGTree';
 import type { SDFNode, PrimitiveType, PrimitiveDimensions } from '../../tree/types';
+import { CSGCompiler, CompiledScene, OPCODE_PUSH_LEAF, OPCODE_COMBINE, OPCODE_POST_MOD } from '../csg/CSGCompiler';
 
 // ========================================================================
 // Smooth Polynomial CSG Booleans
@@ -353,6 +354,7 @@ export class SdfEvaluator {
     else if (mods.mirrorAxis === 'y') py = Math.abs(py);
     else if (mods.mirrorAxis === 'z') pz = Math.abs(pz);
 
+    if (!node.primitive) return 1000.0;
     let d = this.evalPrimitive(node.primitive.type, px, py, pz, node.primitive.dimensions);
 
     // 4. Rounding modifier
@@ -369,41 +371,69 @@ export class SdfEvaluator {
   }
 
   /**
+   * Evaluates the compiled scene signed distance for a world point using
+   * the exact same postfix instruction stack evaluation as the GPU Stack VM.
+   */
+  public static evalCompiledScene(
+    worldP: [number, number, number] | THREE.Vector3,
+    compiled: CompiledScene
+  ): number {
+    const { leaves, instructions } = compiled;
+    if (instructions.length === 0 || leaves.length === 0) return 1000.0;
+
+    const stack: number[] = [];
+
+    for (let i = 0; i < instructions.length; i++) {
+      const instr = instructions[i];
+      if (instr.opcode === OPCODE_PUSH_LEAF) {
+        const leaf = leaves[instr.arg0];
+        const d = this.evalNodeDistance(worldP, leaf.node, leaf.inverseWorldMatrix);
+        stack.push(d);
+      } else if (instr.opcode === OPCODE_COMBINE) {
+        if (stack.length >= 2) {
+          const dB = stack.pop()!;
+          const dA = stack.pop()!;
+          const op = instr.arg0;
+          const isSmooth = instr.arg1 === 1;
+          const k = instr.arg2;
+
+          let res = dA;
+          if (op === 0) {
+            // Union
+            res = isSmooth ? sminPolynomial(dA, dB, k) : Math.min(dA, dB);
+          } else if (op === 1) {
+            // Difference (A - B)
+            res = isSmooth ? smaxPolynomial(dA, -dB, k) : Math.max(dA, -dB);
+          } else if (op === 2) {
+            // Intersection
+            res = isSmooth ? smaxPolynomial(dA, dB, k) : Math.max(dA, dB);
+          }
+          stack.push(res);
+        }
+      } else if (instr.opcode === OPCODE_POST_MOD) {
+        if (stack.length >= 1) {
+          let top = stack.pop()!;
+          const roundRadius = instr.arg0;
+          const shellThickness = instr.arg1;
+          if (roundRadius > 0.0) top -= roundRadius;
+          if (shellThickness > 0.0) top = Math.abs(top) - shellThickness;
+          stack.push(top);
+        }
+      }
+    }
+
+    return stack.length > 0 ? stack[0] : 1000.0;
+  }
+
+  /**
    * Evaluates the combined scene signed distance for a world point.
    */
   public static evalSceneDistance(
     worldP: [number, number, number] | THREE.Vector3,
     tree: CSGTree
   ): number {
-    const flattened = tree.flattenWithTransforms();
-    if (flattened.length === 0) return 1000.0;
-
-    let dAcc = 1000.0;
-    let initialized = false;
-
-    for (let i = 0; i < flattened.length; i++) {
-      const item = flattened[i];
-      const d = this.evalNodeDistance(worldP, item.node, item.inverseWorldMatrix);
-
-      if (!initialized) {
-        dAcc = d;
-        initialized = true;
-        continue;
-      }
-
-      const op = item.node.csg.operation;
-      const isSmooth = item.node.csg.blendMode === 'smooth_polynomial';
-      const k = item.node.csg.blendRadius || 0.0;
-
-      if (op === 'union') {
-        dAcc = isSmooth ? sminPolynomial(dAcc, d, k) : Math.min(dAcc, d);
-      } else if (op === 'difference') {
-        dAcc = isSmooth ? smaxPolynomial(dAcc, -d, k) : Math.max(dAcc, -d);
-      } else if (op === 'intersection') {
-        dAcc = isSmooth ? smaxPolynomial(dAcc, d, k) : Math.max(dAcc, d);
-      }
-    }
-
-    return dAcc;
+    const compiled = CSGCompiler.compile(tree);
+    return this.evalCompiledScene(worldP, compiled);
   }
 }
+

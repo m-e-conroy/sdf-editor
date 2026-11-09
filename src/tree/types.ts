@@ -94,7 +94,7 @@ export interface SDFNode {
   kind: 'primitive' | 'group';
   visible: boolean;
   transform: Transform3D;
-  primitive: {
+  primitive?: {
     type: PrimitiveType;
     dimensions: PrimitiveDimensions;
   };

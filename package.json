@@ -9,7 +9,9 @@
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "mcp:start": "node mcp-server/dist/index.js",
+    "mcp:build": "npm run --prefix mcp-server build"
   },
   "dependencies": {
     "three": "^0.170.0",

@@ -74,7 +74,9 @@ export class ShaderExporter {
       const pVar = `p_${index}`;
       const dVar = `d_${index}`;
 
-      lines.push(`    // Node ${index}: ${node.name} (${node.primitive.type})`);
+      const primType = node.primitive?.type ?? 'sphere';
+      const primDims = node.primitive?.dimensions ?? {};
+      lines.push(`    // Node ${index}: ${node.name} (${primType})`);
       lines.push(`    mat4 invMat_${index} = mat4(`);
       lines.push(`        ${invM[0].toFixed(5)}, ${invM[1].toFixed(5)}, ${invM[2].toFixed(5)}, ${invM[3].toFixed(5)},`);
       lines.push(`        ${invM[4].toFixed(5)}, ${invM[5].toFixed(5)}, ${invM[6].toFixed(5)}, ${invM[7].toFixed(5)},`);
@@ -112,7 +114,7 @@ export class ShaderExporter {
       }
 
       // Primitive call
-      const primCall = ShaderExporter.generatePrimitiveCall(node.primitive.type, pVar, node.primitive.dimensions);
+      const primCall = ShaderExporter.generatePrimitiveCall(primType, pVar, primDims);
       lines.push(`    float ${dVar} = ${primCall};`);
 
       // Shell & Rounding modifiers

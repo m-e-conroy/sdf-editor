@@ -2,6 +2,7 @@
 // SDF Studio 3D - Scene Store with Command Pattern, Transactions & Revision
 // ========================================================================
 
+import * as THREE from 'three';
 import { CSGTree } from '../tree/CSGTree';
 import type { SDFNode, SDFSceneDocument } from '../tree/types';
 import { validateSceneLimits, countLeaves, MAX_LEAVES } from '../engine/SceneLimits';
@@ -268,6 +269,182 @@ export class SceneStore extends EventTarget {
         this.tree.reparentNode(nodeId, oldParentId, oldIndex);
       }
     });
+  }
+
+  public createGroup(name: string = 'Group', parentId?: string, wrapNodeIds?: string[]): SDFNode {
+    const pId = parentId || this.tree.root.id;
+    const parent = this.tree.findNode(pId) || this.tree.root;
+
+    const groupNode: SDFNode = {
+      id: 'group_' + Math.random().toString(36).substring(2, 9),
+      name,
+      kind: 'group',
+      visible: true,
+      transform: {
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1]
+      },
+      primitive: {
+        type: 'sphere',
+        dimensions: {}
+      },
+      csg: {
+        operation: 'union',
+        blendMode: 'hard',
+        blendRadius: 0.0
+      },
+      material: {
+        color: '#e2e8f0',
+        roughness: 0.35,
+        metalness: 0.1
+      },
+      children: []
+    };
+
+    if (wrapNodeIds && wrapNodeIds.length > 0) {
+      this.transaction(`Group ${wrapNodeIds.length} Objects`, () => {
+        const firstWrap = this.tree.findNode(wrapNodeIds[0]);
+        const wrapParent = firstWrap ? this.tree.findParent(firstWrap.id) : parent;
+        const targetParent = wrapParent || parent;
+        const insertIdx = firstWrap ? targetParent.children.findIndex((c) => c.id === firstWrap.id) : targetParent.children.length;
+
+        this.execute({
+          name: `Create Group ${groupNode.name}`,
+          execute: () => {
+            targetParent.children.splice(insertIdx, 0, groupNode);
+            this.selectedNodeId = groupNode.id;
+          },
+          undo: () => {
+            const idx = targetParent.children.findIndex((c) => c.id === groupNode.id);
+            if (idx !== -1) targetParent.children.splice(idx, 1);
+          }
+        });
+
+        for (const nodeId of wrapNodeIds) {
+          this.reparentNode(nodeId, groupNode.id);
+        }
+
+        this.selectedNodeId = groupNode.id;
+      });
+    } else {
+      this.addNode(groupNode, pId);
+    }
+
+    return groupNode;
+  }
+
+  public ungroupNode(groupId: string): boolean {
+    if (this.tree.root.id === groupId) return false;
+    const group = this.tree.findNode(groupId);
+    const parent = this.tree.findParent(groupId);
+    if (!group || group.kind !== 'group' || !parent) return false;
+
+    const savedGroup = JSON.parse(JSON.stringify(group)) as SDFNode;
+    const gIdx = parent.children.findIndex((c) => c.id === groupId);
+
+    const matG = new THREE.Matrix4().compose(
+      new THREE.Vector3(...group.transform.position),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(...group.transform.rotation, 'XYZ')),
+      new THREE.Vector3(...group.transform.scale)
+    );
+
+    const childrenWithTransforms: SDFNode[] = group.children.map((child) => {
+      const cloned = JSON.parse(JSON.stringify(child)) as SDFNode;
+      const matC = new THREE.Matrix4().compose(
+        new THREE.Vector3(...child.transform.position),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(...child.transform.rotation, 'XYZ')),
+        new THREE.Vector3(...child.transform.scale)
+      );
+      const combined = new THREE.Matrix4().multiplyMatrices(matG, matC);
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      combined.decompose(pos, quat, scale);
+      const euler = new THREE.Euler().setFromQuaternion(quat, 'XYZ');
+      cloned.transform.position = [pos.x, pos.y, pos.z];
+      cloned.transform.rotation = [euler.x, euler.y, euler.z];
+      cloned.transform.scale = [scale.x, scale.y, scale.z];
+      return cloned;
+    });
+
+    this.execute({
+      name: `Ungroup ${group.name}`,
+      execute: () => {
+        const p = this.tree.findParent(groupId);
+        if (!p) return;
+        const curIdx = p.children.findIndex((c) => c.id === groupId);
+        if (curIdx === -1) return;
+        p.children.splice(curIdx, 1, ...childrenWithTransforms);
+        this.selectedNodeId = childrenWithTransforms.length > 0 ? childrenWithTransforms[0].id : p.id;
+      },
+      undo: () => {
+        const p = this.tree.findNode(parent.id);
+        if (!p) return;
+        p.children = p.children.filter((c) => !childrenWithTransforms.some((child) => child.id === c.id));
+        p.children.splice(gIdx, 0, JSON.parse(JSON.stringify(savedGroup)));
+        this.selectedNodeId = groupId;
+      }
+    });
+
+    return true;
+  }
+
+  public moveNodeOrder(nodeId: string, direction: 'up' | 'down'): boolean {
+    if (this.tree.root.id === nodeId) return false;
+    const parent = this.tree.findParent(nodeId);
+    if (!parent) return false;
+
+    const idx = parent.children.findIndex((c) => c.id === nodeId);
+    if (idx === -1) return false;
+    if (direction === 'up' && idx <= 0) return false;
+    if (direction === 'down' && idx >= parent.children.length - 1) return false;
+
+    this.execute({
+      name: `Move ${direction === 'up' ? 'Up' : 'Down'}`,
+      execute: () => {
+        const p = this.tree.findParent(nodeId);
+        if (!p) return;
+        const curIdx = p.children.findIndex((c) => c.id === nodeId);
+        if (curIdx === -1) return;
+        const tIdx = direction === 'up' ? curIdx - 1 : curIdx + 1;
+        if (tIdx < 0 || tIdx >= p.children.length) return;
+        const temp = p.children[curIdx];
+        p.children[curIdx] = p.children[tIdx];
+        p.children[tIdx] = temp;
+        this.selectedNodeId = nodeId;
+      },
+      undo: () => {
+        const p = this.tree.findParent(nodeId);
+        if (!p) return;
+        const curIdx = p.children.findIndex((c) => c.id === nodeId);
+        if (curIdx === -1) return;
+        const tIdx = direction === 'up' ? curIdx + 1 : curIdx - 1;
+        if (tIdx < 0 || tIdx >= p.children.length) return;
+        const temp = p.children[curIdx];
+        p.children[curIdx] = p.children[tIdx];
+        p.children[tIdx] = temp;
+        this.selectedNodeId = nodeId;
+      }
+    });
+
+    return true;
+  }
+
+  public wrapSelectedInGroup(): SDFNode | null {
+    const selected = this.getSelectedNode();
+    if (!selected || selected.id === this.tree.root.id) {
+      return this.createGroup('Group', this.tree.root.id);
+    }
+    return this.createGroup('Group', undefined, [selected.id]);
+  }
+
+  public ungroupSelected(): boolean {
+    const selected = this.getSelectedNode();
+    if (!selected || selected.kind !== 'group' || selected.id === this.tree.root.id) {
+      return false;
+    }
+    return this.ungroupNode(selected.id);
   }
 
   public selectNode(id: string | null): void {

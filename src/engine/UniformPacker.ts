@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { CSGTree } from '../tree/CSGTree';
 import { PrimitiveType } from '../tree/types';
+import { CSGCompiler, MAX_INSTRUCTIONS, MAX_LEAF_COUNT } from './csg/CSGCompiler';
 
-export const MAX_GPU_NODES = 32;
+export const MAX_GPU_NODES = MAX_LEAF_COUNT;
 
 export interface PackedUniformData {
   nodeCount: number;
@@ -13,6 +14,9 @@ export interface PackedUniformData {
   modifiers: THREE.Vector4[];
   arrayModifiers: THREE.Vector4[];
   materials: THREE.Vector4[];
+  instructions: THREE.Vector4[];
+  instructionCount: number;
+  selectedRange: THREE.Vector2;
 }
 
 export class UniformPacker {
@@ -46,9 +50,10 @@ export class UniformPacker {
     star_prism: 26
   };
 
-  public static pack(tree: CSGTree): PackedUniformData {
-    const flattened = tree.flattenWithTransforms();
-    const count = Math.min(flattened.length, MAX_GPU_NODES);
+  public static pack(tree: CSGTree, selectedNodeId?: string | null): PackedUniformData {
+    const compiled = CSGCompiler.compile(tree);
+    const leaves = compiled.leaves;
+    const count = Math.min(leaves.length, MAX_GPU_NODES);
 
     const inverseMatrices: THREE.Matrix4[] = [];
     const types: number[] = [];
@@ -60,80 +65,81 @@ export class UniformPacker {
 
     for (let i = 0; i < MAX_GPU_NODES; i++) {
       if (i < count) {
-        const item = flattened[i];
+        const item = leaves[i];
         const node = item.node;
 
         // Inverse world matrix for coordinate mapping
         inverseMatrices.push(item.inverseWorldMatrix);
 
         // Primitive Type Index
-        const typeIndex = this.primitiveTypeMap[node.primitive.type] ?? 0;
+        const primType = node.primitive?.type ?? 'sphere';
+        const typeIndex = this.primitiveTypeMap[primType] ?? 0;
         types.push(typeIndex);
 
         // Dimensions packing
-        const dims = node.primitive.dimensions;
+        const dims = node.primitive?.dimensions || {};
         let dimVec = new THREE.Vector4(0.8, 0.8, 0.8, 0.0);
 
-        if (node.primitive.type === 'sphere') {
+        if (primType === 'sphere') {
           dimVec = new THREE.Vector4(dims.radius ?? 0.8, 0, 0, 0);
-        } else if (node.primitive.type === 'box') {
+        } else if (primType === 'box') {
           const s = dims.size ?? [0.7, 0.7, 0.7];
           dimVec = new THREE.Vector4(s[0], s[1], s[2], 0);
-        } else if (node.primitive.type === 'cylinder') {
+        } else if (primType === 'cylinder') {
           dimVec = new THREE.Vector4(dims.height ?? 0.8, dims.radius ?? 0.5, 0, 0);
-        } else if (node.primitive.type === 'torus') {
+        } else if (primType === 'torus') {
           dimVec = new THREE.Vector4(dims.radiusMajor ?? 0.7, dims.radiusMinor ?? 0.25, 0, 0);
-        } else if (node.primitive.type === 'capsule') {
+        } else if (primType === 'capsule') {
           dimVec = new THREE.Vector4(dims.height ?? 0.6, dims.radius ?? 0.35, 0, 0);
-        } else if (node.primitive.type === 'pipe') {
+        } else if (primType === 'pipe') {
           dimVec = new THREE.Vector4(dims.height ?? 0.8, dims.radius ?? 0.5, dims.thickness ?? 0.08, 0);
-        } else if (node.primitive.type === 'pyramid') {
+        } else if (primType === 'pyramid') {
           dimVec = new THREE.Vector4(dims.height ?? 1.0, 0, 0, 0);
-        } else if (node.primitive.type === 'hexagonal_prism' || node.primitive.type === 'triangular_prism') {
+        } else if (primType === 'hexagonal_prism' || primType === 'triangular_prism') {
           dimVec = new THREE.Vector4(dims.radius ?? 0.6, dims.height ?? 0.7, 0, 0);
-        } else if (node.primitive.type === 'ellipsoid' || node.primitive.type === 'superellipsoid') {
+        } else if (primType === 'ellipsoid' || primType === 'superellipsoid') {
           const r = dims.radii ?? (dims.size as [number, number, number]) ?? [0.8, 0.6, 0.5];
           dimVec = new THREE.Vector4(r[0] || 0.8, r[1] || 0.6, r[2] || 0.5, 0);
-        } else if (node.primitive.type === 'cone') {
+        } else if (primType === 'cone') {
           dimVec = new THREE.Vector4(dims.height ?? 0.8, dims.baseRadius ?? dims.radius ?? 0.6, dims.topRadius ?? 0.0, 0);
-        } else if (node.primitive.type === 'hemisphere' || node.primitive.type === 'tetrahedron' || node.primitive.type === 'octahedron') {
+        } else if (primType === 'hemisphere' || primType === 'tetrahedron' || primType === 'octahedron') {
           dimVec = new THREE.Vector4(dims.radius ?? 0.8, 0, 0, 0);
-        } else if (node.primitive.type === 'capped_torus') {
+        } else if (primType === 'capped_torus') {
           dimVec = new THREE.Vector4(
             dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7,
             dims.radiusMinor ?? dims.thickness ?? 0.25,
             dims.arcAngle ?? Math.PI / 2,
             0
           );
-        } else if (node.primitive.type === 'chain_link') {
+        } else if (primType === 'chain_link') {
           dimVec = new THREE.Vector4(
             (dims.linkLength ?? 0.6) * 0.5,
             dims.radiusMajor ?? dims.radius ?? dims.outerRadius ?? 0.7,
             dims.radiusMinor ?? dims.thickness ?? 0.25,
             0
           );
-        } else if (node.primitive.type === 'chamfer_cylinder') {
+        } else if (primType === 'chamfer_cylinder') {
           dimVec = new THREE.Vector4(
             (dims.height ?? 0.8) * 0.5,
             dims.radius ?? 0.5,
             dims.chamfer ?? 0.08,
             0
           );
-        } else if (node.primitive.type === 'egg') {
+        } else if (primType === 'egg') {
           dimVec = new THREE.Vector4(
             dims.baseRadius ?? dims.radius ?? 0.6,
             dims.tipRadius ?? 0.25,
             dims.height ?? 0.8,
             0
           );
-        } else if (node.primitive.type === 'heart') {
+        } else if (primType === 'heart') {
           dimVec = new THREE.Vector4(
             dims.radius ?? dims.outerRadius ?? 0.75,
             dims.thickness ?? (dims.height ? dims.height * 0.5 : 0.25),
             0,
             0
           );
-        } else if (node.primitive.type === 'star_prism') {
+        } else if (primType === 'star_prism') {
           dimVec = new THREE.Vector4(
             dims.outerRadius ?? dims.radius ?? 0.75,
             dims.innerRadius ?? 0.35,
@@ -192,6 +198,27 @@ export class UniformPacker {
       }
     }
 
+    // Instructions packing
+    const instructions: THREE.Vector4[] = [];
+    const instrCount = Math.min(compiled.instructions.length, MAX_INSTRUCTIONS);
+    for (let i = 0; i < MAX_INSTRUCTIONS; i++) {
+      if (i < instrCount) {
+        const instr = compiled.instructions[i];
+        instructions.push(new THREE.Vector4(instr.opcode, instr.arg0, instr.arg1, instr.arg2));
+      } else {
+        instructions.push(new THREE.Vector4(0, 0, 0, 0));
+      }
+    }
+
+    // Selected range resolution
+    let selectedRange = new THREE.Vector2(-1, -1);
+    if (selectedNodeId) {
+      const range = compiled.nodeLeafRanges.get(selectedNodeId);
+      if (range && range[0] !== -1) {
+        selectedRange = new THREE.Vector2(range[0], range[1]);
+      }
+    }
+
     return {
       nodeCount: count,
       inverseMatrices,
@@ -200,7 +227,10 @@ export class UniformPacker {
       csgConfig,
       modifiers,
       arrayModifiers,
-      materials
+      materials,
+      instructions,
+      instructionCount: instrCount,
+      selectedRange
     };
   }
 }

@@ -24,6 +24,12 @@ uniform vec4 uNodeArrayModifiers[MAX_NODES]; // x: radialRepeat, y: linearCount,
 uniform vec4 uNodeMaterials[MAX_NODES]; // xyz: color, w: roughness
 uniform int uShowGrid;                  // 1 = on, 0 = off
 uniform int uSelectedNodeIndex;         // -1 = none, 0..31 = selected node index
+uniform ivec2 uSelectedRange;           // (-1, -1) if none, or (startLeaf, endLeaf)
+
+// Postfix CSG Instructions & Stack VM
+const int MAX_INSTR = 64;
+uniform int uInstrCount;
+uniform vec4 uInstr[MAX_INSTR]; // x: opcode (0=push_leaf, 1=combine, 2=post_mod), y: arg0, z: arg1, w: arg2
 
 varying vec2 vUv;
 
@@ -392,8 +398,146 @@ SceneHit sceneMap(vec3 p) {
     float dFloor = (uShowGrid == 1) ? (p.y + 1.2) : 1e5;
     vec3 floorCol = (uThemeMode == 0) ? vec3(0.09, 0.09, 0.1) : vec3(0.92, 0.92, 0.94);
 
-    if (uNodeCount == 0) {
+    if (uNodeCount == 0 && uInstrCount == 0) {
         return SceneHit(dFloor, floorCol, 0.5, 0.0, -1);
+    }
+
+    if (uInstrCount > 0) {
+        // Stack VM evaluation for arbitrary nested CSG expressions
+        const int MAX_STACK = 8;
+        float sDist[MAX_STACK];
+        vec3 sColor[MAX_STACK];
+        float sRough[MAX_STACK];
+        float sMetal[MAX_STACK];
+        int sHit[MAX_STACK];
+        int sp = 0;
+
+        for (int i = 0; i < MAX_INSTR; i++) {
+            if (i >= uInstrCount) break;
+            vec4 instr = uInstr[i];
+            int opcode = int(instr.x);
+
+            if (opcode == 0) {
+                // PUSH_LEAF: arg0 = leafIndex
+                int leafIdx = int(instr.y);
+                if (leafIdx < uNodeCount && sp < MAX_STACK) {
+                    vec3 pNode = (uNodeInvMatrices[leafIdx] * vec4(p, 1.0)).xyz;
+                    pNode = applyNodeDomainModifiers(pNode, leafIdx);
+
+                    float dNode = evalPrimitive(uNodeTypes[leafIdx], pNode, uNodeDimensions[leafIdx]);
+                    if (uNodeCSG[leafIdx].w > 0.0) dNode -= uNodeCSG[leafIdx].w; // Rounding
+                    if (uNodeModifiers[leafIdx].x > 0.0) dNode = abs(dNode) - uNodeModifiers[leafIdx].x; // Shell / Onion
+
+                    sDist[sp] = dNode;
+                    sColor[sp] = uNodeMaterials[leafIdx].xyz;
+                    sRough[sp] = uNodeMaterials[leafIdx].w;
+                    sMetal[sp] = uNodeArrayModifiers[leafIdx].w;
+                    sHit[sp] = leafIdx;
+                    sp++;
+                }
+            } else if (opcode == 1) {
+                // COMBINE: arg0 = op, arg1 = blendMode, arg2 = k
+                if (sp >= 2) {
+                    int bIdx = sp - 1;
+                    int aIdx = sp - 2;
+
+                    float dA = sDist[aIdx];
+                    float dB = sDist[bIdx];
+                    int op = int(instr.y);
+                    int blendMode = int(instr.z);
+                    float k = instr.w;
+
+                    float dRes = dA;
+                    vec3 colRes = sColor[aIdx];
+                    float roughRes = sRough[aIdx];
+                    float metalRes = sMetal[aIdx];
+                    int hitRes = sHit[aIdx];
+
+                    if (op == 0) {
+                        // Union
+                        if (blendMode == 1) {
+                            vec2 blend = sminMat(dA, dB, k);
+                            dRes = blend.x;
+                            colRes = mix(sColor[bIdx], sColor[aIdx], blend.y);
+                            roughRes = mix(sRough[bIdx], sRough[aIdx], blend.y);
+                            metalRes = mix(sMetal[bIdx], sMetal[aIdx], blend.y);
+                            hitRes = (blend.y < 0.5) ? sHit[bIdx] : sHit[aIdx];
+                        } else {
+                            if (dB < dA) {
+                                dRes = dB;
+                                colRes = sColor[bIdx];
+                                roughRes = sRough[bIdx];
+                                metalRes = sMetal[bIdx];
+                                hitRes = sHit[bIdx];
+                            }
+                        }
+                    } else if (op == 1) {
+                        // Difference (A - B)
+                        if (blendMode == 1) {
+                            dRes = opSmoothDifference(dA, dB, k);
+                            float h = clamp(0.5 + 0.5 * (-dB - dA) / max(k, 0.0001), 0.0, 1.0);
+                            colRes = mix(sColor[aIdx], sColor[bIdx], h * 0.5);
+                            roughRes = mix(sRough[aIdx], sRough[bIdx], h * 0.5);
+                            metalRes = mix(sMetal[aIdx], sMetal[bIdx], h * 0.5);
+                            if (-dB > dA) hitRes = sHit[bIdx];
+                        } else {
+                            if (-dB > dA) {
+                                dRes = -dB;
+                                colRes = sColor[bIdx];
+                                roughRes = sRough[bIdx];
+                                metalRes = sMetal[bIdx];
+                                hitRes = sHit[bIdx];
+                            }
+                        }
+                    } else if (op == 2) {
+                        // Intersection (A & B)
+                        if (blendMode == 1) {
+                            dRes = opSmoothIntersection(dA, dB, k);
+                            float h = clamp(0.5 + 0.5 * (dB - dA) / max(k, 0.0001), 0.0, 1.0);
+                            colRes = mix(sColor[aIdx], sColor[bIdx], h);
+                            roughRes = mix(sRough[aIdx], sRough[bIdx], h);
+                            metalRes = mix(sMetal[aIdx], sMetal[bIdx], h);
+                            if (dB > dA) hitRes = sHit[bIdx];
+                        } else {
+                            if (dB > dA) {
+                                dRes = dB;
+                                colRes = sColor[bIdx];
+                                roughRes = sRough[bIdx];
+                                metalRes = sMetal[bIdx];
+                                hitRes = sHit[bIdx];
+                            }
+                        }
+                    }
+
+                    sDist[aIdx] = dRes;
+                    sColor[aIdx] = colRes;
+                    sRough[aIdx] = roughRes;
+                    sMetal[aIdx] = metalRes;
+                    sHit[aIdx] = hitRes;
+                    sp--;
+                }
+            } else if (opcode == 2) {
+                // POST_MOD: arg0 = roundRadius, arg1 = shellThickness
+                if (sp >= 1) {
+                    float rRad = instr.y;
+                    float sThick = instr.z;
+                    if (rRad > 0.0) sDist[sp - 1] -= rRad;
+                    if (sThick > 0.0) sDist[sp - 1] = abs(sDist[sp - 1]) - sThick;
+                }
+            }
+        }
+
+        float finalDist = (sp > 0) ? sDist[0] : 1e5;
+        vec3 finalCol = (sp > 0) ? sColor[0] : floorCol;
+        float finalRough = (sp > 0) ? sRough[0] : 0.4;
+        float finalMetal = (sp > 0) ? sMetal[0] : 0.0;
+        int finalHit = (sp > 0) ? sHit[0] : -1;
+
+        if (dFloor < finalDist) {
+            return SceneHit(dFloor, floorCol, 0.6, 0.0, -1);
+        } else {
+            return SceneHit(finalDist, finalCol, finalRough, finalMetal, finalHit);
+        }
     }
 
     // Evaluate first active node
@@ -665,7 +809,14 @@ void main() {
             }
 
             // Selection Accent Contour Highlight
+            bool isSelected = false;
             if (uSelectedNodeIndex >= 0 && hitInfo.nodeIndex == uSelectedNodeIndex) {
+                isSelected = true;
+            }
+            if (uSelectedRange.x >= 0 && hitInfo.nodeIndex >= uSelectedRange.x && hitInfo.nodeIndex <= uSelectedRange.y) {
+                isSelected = true;
+            }
+            if (isSelected) {
                 float fresnelSel = pow(1.0 - max(dot(normal, -rayDir), 0.0), 3.0);
                 vec3 selAccent = vec3(0.2, 0.65, 1.0); // Vibrant blue/cyan highlight
                 col = mix(col, selAccent, fresnelSel * 0.65);

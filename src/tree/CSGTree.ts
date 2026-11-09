@@ -54,24 +54,53 @@ export class CSGTree {
     };
   }
 
+  public static createGroupNode(name?: string): SDFNode {
+    const id = 'group_' + Math.random().toString(36).substring(2, 9);
+    return {
+      id,
+      name: name || 'Group',
+      kind: 'group',
+      visible: true,
+      transform: {
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        scale: [1, 1, 1]
+      },
+      csg: {
+        operation: 'union',
+        blendMode: 'hard',
+        blendRadius: 0.0
+      },
+      material: {
+        color: '#e2e8f0',
+        roughness: 0.35,
+        metalness: 0.1
+      },
+      children: []
+    };
+  }
+
   public static createDefaultScene(): SDFNode {
-    const root = this.createDefaultNode('sphere', 'Root Union');
-    root.kind = 'group';
+    const root = this.createGroupNode('Root Group');
 
     // Add a default shape: Box with a subtracted Sphere to demonstrate CSG
     const box = this.createDefaultNode('box', 'Base Box');
     box.transform.position = [0, 0, 0];
-    box.primitive.dimensions.size = [0.75, 0.75, 0.75];
+    if (box.primitive) {
+      box.primitive.dimensions.size = [0.75, 0.75, 0.75];
+    }
 
     const cutter = this.createDefaultNode('sphere', 'Cutter Sphere');
     cutter.transform.position = [0.35, 0.35, 0.35];
-    cutter.primitive.dimensions.radius = 0.65;
+    if (cutter.primitive) {
+      cutter.primitive.dimensions.radius = 0.65;
+    }
     cutter.csg.operation = 'difference';
     cutter.csg.blendMode = 'smooth_polynomial';
     cutter.csg.blendRadius = 0.12;
 
-    box.children.push(cutter);
     root.children.push(box);
+    root.children.push(cutter);
 
     return root;
   }
@@ -197,9 +226,87 @@ export class CSGTree {
     return list;
   }
 
+  public static migrateV1toV2(doc: SDFSceneDocument): SDFSceneDocument {
+    if (!doc || !doc.rootNode) return doc;
+    if (doc.version === '2.0.0') return doc;
+
+    const clonedDoc: SDFSceneDocument = JSON.parse(JSON.stringify(doc));
+    clonedDoc.version = '2.0.0';
+
+    const composeTransforms = (
+      parentPos: [number, number, number],
+      parentRot: [number, number, number],
+      parentScale: [number, number, number],
+      childPos: [number, number, number],
+      childRot: [number, number, number],
+      childScale: [number, number, number]
+    ): { position: [number, number, number]; rotation: [number, number, number]; scale: [number, number, number] } => {
+      const pMat = new THREE.Matrix4().compose(
+        new THREE.Vector3(...parentPos),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(...parentRot, 'XYZ')),
+        new THREE.Vector3(...parentScale)
+      );
+      const cMat = new THREE.Matrix4().compose(
+        new THREE.Vector3(...childPos),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(...childRot, 'XYZ')),
+        new THREE.Vector3(...childScale)
+      );
+      const combined = new THREE.Matrix4().multiplyMatrices(pMat, cMat);
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      combined.decompose(pos, quat, scale);
+      const euler = new THREE.Euler().setFromQuaternion(quat, 'XYZ');
+      return {
+        position: [pos.x, pos.y, pos.z],
+        rotation: [euler.x, euler.y, euler.z],
+        scale: [scale.x, scale.y, scale.z]
+      };
+    };
+
+    const processChildren = (children: SDFNode[]): SDFNode[] => {
+      const result: SDFNode[] = [];
+      for (const node of children) {
+        if (node.kind === 'primitive' && node.children && node.children.length > 0) {
+          const origChildren = node.children;
+          node.children = [];
+          result.push(node);
+
+          const hoisted = processChildren(origChildren);
+          for (const h of hoisted) {
+            const baked = composeTransforms(
+              node.transform.position,
+              node.transform.rotation,
+              node.transform.scale,
+              h.transform.position,
+              h.transform.rotation,
+              h.transform.scale
+            );
+            h.transform.position = baked.position;
+            h.transform.rotation = baked.rotation;
+            h.transform.scale = baked.scale;
+            result.push(h);
+          }
+        } else {
+          if (node.children && node.children.length > 0) {
+            node.children = processChildren(node.children);
+          }
+          result.push(node);
+        }
+      }
+      return result;
+    };
+
+    if (clonedDoc.rootNode.kind !== 'group') {
+      clonedDoc.rootNode.kind = 'group';
+    }
+    clonedDoc.rootNode.children = processChildren(clonedDoc.rootNode.children || []);
+    return clonedDoc;
+  }
+
   public toJSON(): SDFSceneDocument {
     return {
-      version: '1.0.0',
+      version: '2.0.0',
       metadata: {
         name: 'SDF Studio Scene',
         author: 'User',
@@ -219,8 +326,9 @@ export class CSGTree {
   }
 
   public fromJSON(doc: SDFSceneDocument): void {
-    if (doc.rootNode) {
-      this.root = doc.rootNode;
+    if (doc && doc.rootNode) {
+      const migrated = CSGTree.migrateV1toV2(doc);
+      this.root = migrated.rootNode;
     }
   }
 }

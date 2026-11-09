@@ -7,6 +7,11 @@ subagent: true
 commandExecutionPolicy: sandbox
 inheritMcp: true
 inheritCustomizations: true
+tools:
+  - read_file
+  - edit_file
+  - write_file
+  - run_command
 skills:
   - skills/project-organization
   - skills/clean-code

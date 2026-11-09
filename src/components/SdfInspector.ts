@@ -256,9 +256,17 @@ export class SdfInspector extends HTMLElement {
             <input type="text" id="prop-name" class="text-input" value="${node.name}" />
           </div>
           <div class="field-row">
-            <span class="field-label">Shape Type:</span>
-            <span style="font-weight: 600; color: var(--accent-primary); font-size: 11px;">${node.primitive.type.toUpperCase()}</span>
+            <span class="field-label">Type:</span>
+            <span style="font-weight: 600; color: var(--accent-primary); font-size: 11px;">
+              ${node.kind === 'group' ? 'CSG GROUP' : (node.primitive?.type.toUpperCase() ?? 'PRIMITIVE')}
+            </span>
           </div>
+          ${node.kind === 'group' ? `
+          <div class="field-row">
+            <span class="field-label">Children:</span>
+            <span style="font-weight: 500; font-size: 11px; color: var(--text-secondary);">${node.children.length} node(s)</span>
+          </div>
+          ` : ''}
         </div>
 
         <!-- Transform -->
@@ -331,10 +339,12 @@ export class SdfInspector extends HTMLElement {
         </div>
 
         <!-- Primitive Dimensions -->
+        ${node.kind === 'primitive' && node.primitive ? `
         <div class="prop-section">
           <div class="section-header">Primitive Parameters</div>
           ${this.renderDimensionFields(node)}
         </div>
+        ` : ''}
 
         <!-- CSG & Blending (Hidden for Root) -->
         ${!isRoot ? `
@@ -476,7 +486,8 @@ export class SdfInspector extends HTMLElement {
   }
 
   private renderDimensionFields(node: any): string {
-    const dims = node.primitive.dimensions;
+    if (!node.primitive) return '';
+    const dims = node.primitive.dimensions || {};
     const type = node.primitive.type;
 
     if (type === 'sphere') {

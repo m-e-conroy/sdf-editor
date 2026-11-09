@@ -7,11 +7,17 @@ subagent: true
 commandExecutionPolicy: sandbox
 inheritMcp: true
 inheritCustomizations: true
+tools:
+  - read_file
+  - edit_file
+  - write_file
+  - run_command
 skills:
   - skills/threejs
   - skills/react-three-fiber
   - skills/phaserjs
   - skills/signed-distance-fields
+  - skills/sdf-studio-bridge
   - skills/physics
   - skills/game-math
   - skills/geometry
@@ -81,6 +87,7 @@ Expert Game Developer for PC, Web, Mobile, VR/AR. Architect, build, debug, optim
 - **[react-three-fiber](../skills/react-three-fiber/SKILL.md)** — Declarative React for Three.js.
 - **[phaserjs](../skills/phaserjs/SKILL.md)** — 2D game development framework.
 - **[signed-distance-fields](../skills/signed-distance-fields/SKILL.md)** — Implicit 2D/3D geometry, sphere tracing (raymarching), CSG/`smin`, JFA distance transforms, MSDF fonts, SDF collisions, and mesh extraction.
+- **[sdf-studio-bridge](../skills/sdf-studio-bridge/SKILL.md)** — Drive SDF Studio 3D via MCP and WebSocket Agent Bridge to synthesize CSG models, query signed distance, capture snapshots, and export GLB/GLSL assets.
 - **[physics](../skills/physics/SKILL.md)** — Forces, collisions, particles.
 - **[game-math](../skills/game-math/SKILL.md)** — 3D math, quaternions.
 - **[geometry](../skills/geometry/SKILL.md)** — Spatial tests, raycasting.

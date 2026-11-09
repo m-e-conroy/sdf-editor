@@ -9,7 +9,7 @@ import { SHAPE_CATALOG, ShapeDefinition } from '../icons/shapeIcons';
 
 export class SdfShapePalette extends HTMLElement {
   private isOpen = false;
-  private currentCategory: 'all' | 'euclidean' | 'curved' | 'polyhedra' | 'fractal' = 'all';
+  private currentCategory: 'all' | 'euclidean' | 'curved' | 'polyhedra' | 'fractal' | 'cad' = 'all';
   private searchQuery = '';
   private sceneStore = SceneStore.getInstance();
   private onKeyDownBound: (e: KeyboardEvent) => void = () => {};
@@ -411,6 +411,7 @@ export class SdfShapePalette extends HTMLElement {
             <button class="category-tab" data-cat="curved">Curved & Hollow</button>
             <button class="category-tab" data-cat="polyhedra">Polyhedra</button>
             <button class="category-tab" data-cat="fractal">3D Fractals</button>
+            <button class="category-tab" data-cat="cad">CAD / Groups</button>
           </div>
         </div>
 
@@ -502,7 +503,10 @@ export class SdfShapePalette extends HTMLElement {
   }
 
   private handleAddShape(type: ShapeDefinition['type']): void {
-    const newNode = CSGTree.createDefaultNode(type);
+    const newNode = type === 'group'
+      ? CSGTree.createGroupNode('New Group')
+      : CSGTree.createDefaultNode(type);
+
     // Subtle jitter so repeated shapes don't exactly occlude each other
     newNode.transform.position = [
       (Math.random() - 0.5) * 0.4,

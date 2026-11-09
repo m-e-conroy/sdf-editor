@@ -6,9 +6,9 @@
 import { PrimitiveType } from '../tree/types';
 
 export interface ShapeDefinition {
-  type: PrimitiveType;
+  type: PrimitiveType | 'group';
   name: string;
-  category: 'euclidean' | 'curved' | 'polyhedra' | 'fractal';
+  category: 'euclidean' | 'curved' | 'polyhedra' | 'fractal' | 'cad';
   description: string;
   badge: string;
   iconSvg: string;
@@ -803,6 +803,51 @@ export const SHAPE_CATALOG: ShapeDefinition[] = [
         <path d="M 18 28 V 44" stroke="#ffffff" stroke-width="0.8" stroke-opacity="0.4"/>
         <path d="M 38 28 V 44" stroke="#ffffff" stroke-width="0.7" stroke-opacity="0.25"/>
         <path d="M 28 23 V 39" stroke="#000000" stroke-width="0.7" stroke-opacity="0.3"/>
+      </svg>
+    `
+  },
+  // ------------------------------------------------------------------------
+  // 5. CAD Assembly & CSG Groups
+  // ------------------------------------------------------------------------
+  {
+    type: 'group',
+    name: 'CSG Group',
+    category: 'cad',
+    description: 'Hierarchical CSG container node evaluating nested (A - B) boolean subtrees.',
+    badge: 'Assembly',
+    iconSvg: `
+      <svg viewBox="0 0 56 56" width="56" height="56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="group-bg-grad" x1="12" y1="12" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#0284c7" stop-opacity="0.05"/>
+          </linearGradient>
+          <radialGradient id="group-sphere-a" cx="35%" cy="30%" r="65%">
+            <stop offset="0%" stop-color="#e0f2fe"/>
+            <stop offset="40%" stop-color="#38bdf8"/>
+            <stop offset="100%" stop-color="#0369a1"/>
+          </radialGradient>
+          <radialGradient id="group-sphere-b" cx="35%" cy="30%" r="65%">
+            <stop offset="0%" stop-color="#f8fafc"/>
+            <stop offset="40%" stop-color="#94a3b8"/>
+            <stop offset="100%" stop-color="#334155"/>
+          </radialGradient>
+          <radialGradient id="group-shadow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#000000" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <!-- Contact Shadow -->
+        <ellipse cx="28" cy="48" rx="20" ry="4" fill="url(#group-shadow)"/>
+        <!-- Dashed Bounding Bracket Container -->
+        <rect x="8" y="8" width="40" height="40" rx="8" fill="url(#group-bg-grad)" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 3" stroke-opacity="0.8"/>
+        <!-- Left Primary Sphere -->
+        <circle cx="22" cy="27" r="11" fill="url(#group-sphere-b)"/>
+        <!-- Right CSG Subtracted / Joined Sphere -->
+        <circle cx="34" cy="29" r="10" fill="url(#group-sphere-a)" fill-opacity="0.9"/>
+        <!-- Specular glints -->
+        <circle cx="19" cy="23" r="2.5" fill="#ffffff" fill-opacity="0.7"/>
+        <circle cx="31" cy="25" r="2" fill="#ffffff" fill-opacity="0.9"/>
       </svg>
     `
   }

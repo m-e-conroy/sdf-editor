@@ -101,3 +101,4 @@ export function validateSceneLimits(tree: CSGTree | SDFNode): SceneLimitsValidat
     instructionCount
   };
 }
+

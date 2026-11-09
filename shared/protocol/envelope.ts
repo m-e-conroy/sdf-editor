@@ -91,12 +91,28 @@ export type ResponseEnvelope<TResult = unknown> = Omit<z.infer<typeof ResponseEn
   result?: TResult;
 };
 
+export const PingEnvelopeSchema = z.object({
+  v: z.literal(PROTOCOL_VERSION),
+  type: z.literal('ping')
+});
+
+export type PingEnvelope = z.infer<typeof PingEnvelopeSchema>;
+
+export const PongEnvelopeSchema = z.object({
+  v: z.literal(PROTOCOL_VERSION),
+  type: z.literal('pong')
+});
+
+export type PongEnvelope = z.infer<typeof PongEnvelopeSchema>;
+
 export const BridgeEnvelopeSchema = z.discriminatedUnion('type', [
   HelloEnvelopeSchema,
   WelcomeEnvelopeSchema,
   RequestEnvelopeSchema,
   ProgressEnvelopeSchema,
-  ResponseEnvelopeSchema
+  ResponseEnvelopeSchema,
+  PingEnvelopeSchema,
+  PongEnvelopeSchema
 ]);
 
 export type BridgeEnvelope = z.infer<typeof BridgeEnvelopeSchema>;
@@ -184,3 +200,4 @@ export function createResponseError(
     }
   };
 }
+

@@ -67,7 +67,7 @@ export const SceneRecipeNodeSchema: z.ZodType<SceneRecipeNode> = z.lazy(() =>
     ref: z.string().max(64).optional(),
     name: z.string().max(64).optional(),
     type: z.union([PrimitiveTypeSchema, z.literal('group')]),
-    dimensions: z.record(z.any()).optional(),
+    dimensions: z.record(z.string(), z.any()).optional(),
     position: Vec3Schema.optional(),
     rotationDeg: Vec3Schema.optional(),
     scale: Vec3Schema.optional(),
@@ -110,14 +110,14 @@ export const GetSceneResultSchema = z.object({
 // 2. scene.listPrimitives
 export const ListPrimitivesParamsSchema = z.object({});
 export const ListPrimitivesResultSchema = z.object({
-  primitives: z.record(z.any())
+  primitives: z.record(z.string(), z.any())
 });
 
 // 3. scene.addPrimitive
 export const AddPrimitiveParamsSchema = z.object({
   type: PrimitiveTypeSchema,
   name: z.string().max(64).optional(),
-  dimensions: z.record(z.any()).optional(),
+  dimensions: z.record(z.string(), z.any()).optional(),
   position: Vec3Schema.optional(),
   rotationDeg: Vec3Schema.optional(),
   scale: Vec3Schema.optional(),
@@ -158,7 +158,7 @@ export const UpdateNodeParamsSchema = z.object({
   position: Vec3Schema.optional(),
   rotationDeg: Vec3Schema.optional(),
   scale: Vec3Schema.optional(),
-  dimensions: z.record(z.any()).optional(),
+  dimensions: z.record(z.string(), z.any()).optional(),
   operation: CSGOpTypeSchema.optional(),
   blend: BlendConfigSchema.optional(),
   material: MaterialConfigSchema.partial().optional(),
@@ -236,7 +236,7 @@ export const ApplyRecipeParamsSchema = z.object({
 });
 export const ApplyRecipeResultSchema = z.object({
   revision: z.number().int().nonnegative(),
-  refs: z.record(z.string()),
+  refs: z.record(z.string(), z.string()),
   counts: z.object({
     leaves: z.number().int().nonnegative(),
     instructions: z.number().int().nonnegative(),
@@ -405,3 +405,4 @@ export const METHOD_SCHEMAS = {
   [METHODS.FILE_PROJECT]: { params: ProjectParamsSchema, result: ProjectResultSchema },
   [METHODS.FILE_EXPORT_MESH]: { params: ExportMeshParamsSchema, result: ExportMeshResultSchema }
 } as const;
+

@@ -13,6 +13,7 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
     const dummyModifiers: THREE.Vector4[] = [];
     const dummyArrayModifiers: THREE.Vector4[] = [];
     const dummyMaterials: THREE.Vector4[] = [];
+    const dummyInstructions: THREE.Vector4[] = [];
 
     for (let i = 0; i < MAX_GPU_NODES; i++) {
       dummyMatrices.push(new THREE.Matrix4());
@@ -22,6 +23,10 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
       dummyModifiers.push(new THREE.Vector4(0, 0, 0, 0));
       dummyArrayModifiers.push(new THREE.Vector4(1, 1, 0, 0));
       dummyMaterials.push(new THREE.Vector4(0.85, 0.85, 0.85, 0.4));
+    }
+
+    for (let i = 0; i < 64; i++) {
+      dummyInstructions.push(new THREE.Vector4(0, 0, 0, 0));
     }
 
     super({
@@ -43,6 +48,7 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
         uEnableAO: { value: 1 },        // alias
         uShowGrid: { value: 1 },        // 1 = show CAD floor grid, 0 = hide
         uSelectedNodeIndex: { value: -1 }, // Index of selected node for highlight contour
+        uSelectedRange: { value: new THREE.Vector2(-1, -1) }, // [startLeaf, endLeaf] for multi-leaf selection
         uNodeCount: { value: 0 },
         uNodeInvMatrices: { value: dummyMatrices },
         uNodeTypes: { value: dummyTypes },
@@ -50,7 +56,9 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
         uNodeCSG: { value: dummyCSG },
         uNodeModifiers: { value: dummyModifiers },
         uNodeArrayModifiers: { value: dummyArrayModifiers },
-        uNodeMaterials: { value: dummyMaterials }
+        uNodeMaterials: { value: dummyMaterials },
+        uInstrCount: { value: 0 },
+        uInstr: { value: dummyInstructions }
       },
       depthWrite: true,
       depthTest: true
@@ -77,6 +85,15 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
       this.uniforms.uNodeModifiers.value[i].copy(packed.modifiers[i]);
       this.uniforms.uNodeArrayModifiers.value[i].copy(packed.arrayModifiers[i]);
       this.uniforms.uNodeMaterials.value[i].copy(packed.materials[i]);
+    }
+    if (this.uniforms.uInstrCount && packed.instructions) {
+      this.uniforms.uInstrCount.value = packed.instructionCount;
+      for (let i = 0; i < 64; i++) {
+        this.uniforms.uInstr.value[i].copy(packed.instructions[i]);
+      }
+    }
+    if (this.uniforms.uSelectedRange && packed.selectedRange) {
+      this.uniforms.uSelectedRange.value.copy(packed.selectedRange);
     }
   }
 
