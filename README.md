@@ -74,11 +74,14 @@ SDF Studio 3D is designed for seamless human-AI co-creation. With its built-in *
 Build and launch the MCP server in your terminal:
 
 ```bash
-# Build the TypeScript MCP server
+# Build the TypeScript MCP server (syncs shared/protocol into mcp-server/src/protocol first)
 npm run mcp:build
 
 # Launch the standalone MCP server (stdio transport)
 npm run mcp:start
+
+# Build and run the stdio + bridge smoke tests
+npm run mcp:test
 ```
 
 ### 2. Client Configuration

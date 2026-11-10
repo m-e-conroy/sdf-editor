@@ -80,7 +80,12 @@ export class SdfViewport extends HTMLElement {
 
     // 7. Initialize MCP Agent Bridge & Dispatcher
     this.bridge = AgentBridge.getInstance({ autoConnect: true });
-    this.dispatcher = new BridgeDispatcher(this.bridge, this.sceneStore, this.renderer);
+    // The bridge is a singleton; reuse the dispatcher so re-mounts don't double-handle requests
+    if (this.dispatcher) {
+      this.dispatcher.setRenderer(this.renderer);
+    } else {
+      this.dispatcher = new BridgeDispatcher(this.bridge, this.sceneStore, this.renderer);
+    }
     this.wireBridgeEvents();
   }
 

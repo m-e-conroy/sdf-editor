@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CSGTree } from './CSGTree';
-import { SDFSceneDocument, SDFNode } from './types';
+import { SDFSceneDocument } from './types';
 import { SdfEvaluator } from '../engine/cpu/SdfEvaluator';
 
 describe('Migration v1 to v2', () => {
@@ -102,19 +102,26 @@ describe('Migration v1 to v2', () => {
     const treeV2 = new CSGTree();
     treeV2.fromJSON(v2Doc);
 
+    // The v2 evaluator ignores primitive children, so express v1 semantics
+    // (child in parent's local frame) as a group carrying the parent transform.
+    const reference = new CSGTree();
+    const frame = CSGTree.createGroupNode('BoxFrame');
+    frame.transform = parentBox.transform;
+    parentBox.transform = { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] };
+    parentBox.children = [];
+    frame.children = [parentBox, childSphere];
+    reference.root.children = [frame];
+
     // Verify distance evaluations match at 50 pseudo-random sample points
-    let maxDiff = 0;
     for (let i = 0; i < 50; i++) {
       const px = ((i * 17) % 100) / 50.0 - 1.0;
       const py = ((i * 31) % 100) / 50.0 - 1.0;
       const pz = ((i * 43) % 100) / 50.0 - 1.0;
       const p: [number, number, number] = [px, py, pz];
 
-      const d1 = SdfEvaluator.evalSceneDistance(p, treeV1);
+      const d1 = SdfEvaluator.evalSceneDistance(p, reference);
       const d2 = SdfEvaluator.evalSceneDistance(p, treeV2);
-      const diff = Math.abs(d1 - d2);
-      if (diff > maxDiff) maxDiff = diff;
-      expect(diff).toBeLessThan(0.0001);
+      expect(Math.abs(d1 - d2)).toBeLessThan(0.0001);
     }
   });
 });

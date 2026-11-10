@@ -5,6 +5,10 @@ import { UniformPacker } from '../engine/UniformPacker';
 import { SceneStore } from '../store/SceneStore';
 import { PrimitiveType } from '../tree/types';
 
+const PRIMITIVE_SHAPES = SHAPE_CATALOG.filter(
+  (s): s is typeof s & { type: PrimitiveType } => s.type !== 'group'
+);
+
 describe('SdfShapePalette & SHAPE_CATALOG', () => {
   beforeEach(() => {
     const store = SceneStore.getInstance();
@@ -12,8 +16,10 @@ describe('SdfShapePalette & SHAPE_CATALOG', () => {
   });
 
   describe('Catalog Completeness & Metadata Validation', () => {
-    it('should contain all 21 core geometric and advanced primitives', () => {
-      expect(SHAPE_CATALOG).toHaveLength(21);
+    it('should contain all 21 core geometric and advanced primitives plus the CSG Group', () => {
+      expect(PRIMITIVE_SHAPES).toHaveLength(21);
+      expect(SHAPE_CATALOG).toHaveLength(22);
+      expect(SHAPE_CATALOG.find((s) => s.type === 'group')?.category).toBe('cad');
     });
 
     const expectedTypes: PrimitiveType[] = [
@@ -80,11 +86,11 @@ describe('SdfShapePalette & SHAPE_CATALOG', () => {
 
   describe('Engine Compatibility & Node Spawning', () => {
     it('should successfully instantiate a valid SDFNode in CSGTree for every catalog primitive', () => {
-      SHAPE_CATALOG.forEach((shape) => {
+      PRIMITIVE_SHAPES.forEach((shape) => {
         const node = CSGTree.createDefaultNode(shape.type);
         expect(node).toBeDefined();
         expect(node.id).toBeDefined();
-        expect(node.primitive.type).toBe(shape.type);
+        expect(node.primitive?.type).toBe(shape.type);
         expect(node.transform.position).toEqual([0, 0, 0]);
         expect(node.transform.scale).toEqual([1, 1, 1]);
         expect(node.material.color).toBe('#e2e8f0');
@@ -92,7 +98,7 @@ describe('SdfShapePalette & SHAPE_CATALOG', () => {
     });
 
     it('should pack uniforms without errors for every catalog primitive type', () => {
-      SHAPE_CATALOG.forEach((shape) => {
+      PRIMITIVE_SHAPES.forEach((shape) => {
         const tree = new CSGTree(CSGTree.createDefaultNode('sphere', 'Root'));
         tree.root.kind = 'group';
         const node = CSGTree.createDefaultNode(shape.type);
@@ -113,7 +119,7 @@ describe('SdfShapePalette & SHAPE_CATALOG', () => {
       const store = SceneStore.getInstance();
       const initialCount = store.tree.flattenWithTransforms().length;
 
-      const torusItem = SHAPE_CATALOG.find((s) => s.type === 'torus')!;
+      const torusItem = PRIMITIVE_SHAPES.find((s) => s.type === 'torus')!;
       const node = CSGTree.createDefaultNode(torusItem.type);
       store.addNode(node);
       store.selectNode(node.id);

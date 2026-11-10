@@ -34,7 +34,7 @@ export class MeshExtractor {
 
     // 1. Flatten tree and serialize transforms for worker thread
     const flattened = tree.flattenWithTransforms();
-    const nodes: WorkerNodeData[] = flattened.map((item) => ({
+    const nodes: WorkerNodeData[] = flattened.flatMap((item) => item.node.primitive ? [{
       id: item.node.id,
       type: item.node.primitive.type,
       dimensions: item.node.primitive.dimensions,
@@ -42,7 +42,7 @@ export class MeshExtractor {
       modifiers: item.node.modifiers,
       material: item.node.material,
       inverseMatrix: Array.from(item.inverseWorldMatrix.elements)
-    }));
+    }] : []);
 
     // 2. Validate resolution
     const validResolution = [32, 64, 128].includes(resolution)

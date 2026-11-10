@@ -4,10 +4,12 @@ import { AgentBridge } from './AgentBridge';
 import { SceneStore } from '../store/SceneStore';
 import { CSGTree } from '../tree/CSGTree';
 import { ERROR_CODES, createRequestEnvelope } from '../../shared/protocol/envelope';
+import type { RequestEnvelope, ResponseEnvelope } from '../../shared/protocol/envelope';
 
 describe('BridgeDispatcher (MCP RPC Method Dispatcher)', () => {
   let bridge: AgentBridge;
-  let dispatcher: BridgeDispatcher;
+  // Widen per-method result payloads to `any` for assertions
+  let dispatcher: { dispatch(request: RequestEnvelope): Promise<ResponseEnvelope<any>> };
   let store: SceneStore;
   let sentResponses: any[] = [];
 
@@ -151,6 +153,7 @@ describe('BridgeDispatcher (MCP RPC Method Dispatcher)', () => {
     expect(duplicated?.id).not.toBe(p.id);
     expect(duplicated?.transform.position[0]).toBeCloseTo(2, 4);
     expect(duplicated?.transform.position[1]).toBeCloseTo(1, 4);
+    expect(duplicated?.transform.position[2]).toBeCloseTo(0, 4);
   });
 
   it('should support undo / redo via scene.history', async () => {

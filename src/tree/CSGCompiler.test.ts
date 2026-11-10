@@ -89,7 +89,8 @@ describe('CSGCompiler', () => {
     // Group 2: PUSH(C), PUSH(D), COMBINE(diff) -> leaves 2, 3
     // Root: COMBINE(union)
     expect(compiled.instructions.length).toBe(7);
-    expect(compiled.maxStackDepth).toBe(2);
+    // Peak is A-B result + C + D on the stack before Group 2 combines
+    expect(compiled.maxStackDepth).toBe(3);
 
     expect(compiled.nodeLeafRanges.get(a.id)).toEqual([0, 0]);
     expect(compiled.nodeLeafRanges.get(b.id)).toEqual([1, 1]);

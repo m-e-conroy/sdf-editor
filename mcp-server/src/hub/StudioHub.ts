@@ -33,11 +33,13 @@ interface PendingRequest {
 export class StudioHub {
   private port: number;
   private token: string;
+  private studioUrl: string;
   private server: http.Server | null = null;
   private wss: WebSocketServer | null = null;
   private activeStudioSocket: WebSocket | null = null;
   private relaySocket: WebSocket | null = null;
   private isHub = false;
+  private stopped = false;
 
   private pendingRequests = new Map<string, PendingRequest>();
   private mutationQueue: Array<() => Promise<void>> = [];
@@ -46,8 +48,9 @@ export class StudioHub {
   private readonly configPath: string;
 
   constructor(options: StudioHubOptions = {}) {
-    this.port = options.port || Number(process.env.SDF_BRIDGE_PORT) || 8765;
+    this.port = options.port ?? (Number(process.env.SDF_BRIDGE_PORT) || 8765);
     this.token = process.env.SDF_BRIDGE_TOKEN || 'sdf-studio-bridge';
+    this.studioUrl = options.studioUrl || process.env.SDF_STUDIO_URL || 'http://localhost:3000';
 
     const appData =
       process.env.LOCALAPPDATA ||
@@ -79,7 +82,6 @@ export class StudioHub {
   public async start(): Promise<void> {
     try {
       await this.startAsHub();
-      this.isHub = true;
       this.saveConfig();
       process.stderr.write(`[SDF Hub] Listening as primary Hub on 127.0.0.1:${this.port}\n`);
     } catch (err: any) {
@@ -127,6 +129,11 @@ export class StudioHub {
       });
 
       this.server.listen(this.port, '127.0.0.1', () => {
+        const address = this.server?.address();
+        if (address && typeof address === 'object') {
+          this.port = address.port;
+        }
+        this.isHub = true;
         resolve();
       });
     });
@@ -142,14 +149,7 @@ export class StudioHub {
         const parsed = BridgeEnvelopeSchema.parse(json);
 
         if (parsed.type === 'hello') {
-          // Verify pairing token (allows configured token or default zero-friction local token)
-          const isTokenValid =
-            !this.token ||
-            this.token === 'sdf-studio-bridge' ||
-            parsed.token === this.token ||
-            parsed.token === 'sdf-studio-bridge';
-
-          if (!isTokenValid) {
+          if (parsed.token !== this.token) {
             process.stderr.write(`[SDF Hub] Rejected hello with invalid token\n`);
             ws.close(1008, 'Invalid token');
             return;
@@ -292,9 +292,10 @@ export class StudioHub {
       });
 
       this.relaySocket.on('close', () => {
-        process.stderr.write(`[SDF Relay] Hub closed. Promoting this process to Hub...\n`);
         this.relaySocket = null;
-        this.startAsHub().catch((e) => process.stderr.write(`[SDF Hub] Promotion failed: ${e.message}\n`));
+        if (this.stopped) return;
+        process.stderr.write(`[SDF Relay] Hub closed. Promoting this process to Hub...\n`);
+        this.start().catch((e) => process.stderr.write(`[SDF Hub] Promotion failed: ${e.message}\n`));
       });
     });
   }
@@ -388,7 +389,7 @@ export class StudioHub {
         'Studio browser tab is not connected. Open SDF Studio in your browser and enable the Agent Bridge.'
       );
       (err as any).code = ERROR_CODES.STUDIO_NOT_CONNECTED;
-      (err as any).hint = `Open http://localhost:5173/#bridge=${this.token}`;
+      (err as any).hint = `Open ${this.studioUrl}/#bridge=${this.token}`;
       return Promise.reject(err);
     }
 
@@ -425,6 +426,24 @@ export class StudioHub {
 
       targetSocket.send(JSON.stringify(envelope));
     });
+  }
+
+  public async stop(): Promise<void> {
+    this.stopped = true;
+    for (const pending of this.pendingRequests.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Hub stopped'));
+    }
+    this.pendingRequests.clear();
+    this.relaySocket?.close();
+    for (const client of this.wss?.clients ?? []) {
+      client.terminate();
+    }
+    this.wss?.close();
+    await new Promise<void>((resolve) => (this.server ? this.server.close(() => resolve()) : resolve()));
+    this.server = null;
+    this.wss = null;
+    this.isHub = false;
   }
 
   private isOriginAllowed(origin: string): boolean {

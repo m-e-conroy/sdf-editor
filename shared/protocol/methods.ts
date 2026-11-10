@@ -3,7 +3,7 @@
 // ========================================================================
 
 import { z } from 'zod';
-import { PrimitiveTypeSchema } from './primitives';
+import { PrimitiveTypeSchema } from './primitives.js';
 
 // --- Shared Data Types ---
 

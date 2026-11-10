@@ -30,6 +30,20 @@ async function main() {
   const transport = new StdioServerTransport();
   await mcp.connect(transport);
 
+  // The hub's listening socket keeps the event loop alive, so exit explicitly when the host goes away
+  let shuttingDown = false;
+  const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    await hub.stop().catch(() => {});
+    await mcp.close().catch(() => {});
+    process.exit(0);
+  };
+  process.stdin.on('end', shutdown);
+  process.stdin.on('close', shutdown);
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+
   process.stderr.write('[SDF MCP Server] Connected to stdio transport and ready for host commands.\n');
 }
 

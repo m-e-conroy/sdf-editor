@@ -89,7 +89,7 @@ export class SdfStatusBar extends HTMLElement {
     const selectedNameEl = this.querySelector('#selected-node-name');
     if (selectedNameEl) {
       const selected = this.sceneStore.getSelectedNode();
-      selectedNameEl.textContent = selected ? `${selected.name} (${selected.primitive.type})` : 'Root Scene';
+      selectedNameEl.textContent = selected ? `${selected.name} (${selected.primitive?.type ?? selected.kind})` : 'Root Scene';
     }
   }
 

@@ -319,11 +319,13 @@ export function registerTools(server: McpServer, hub: StudioHub, fileWriter: Saf
     async (args) => {
       try {
         const res: any = await hub.callMethod(METHODS.FILE_EXPORT_MESH, args, { timeoutMs: 120000 });
+        const data: string = res.data || '';
         const written = fileWriter.writeFile({
           filename: args.filename,
           defaultName: `model_${Date.now()}`,
           extension: `.${args.format}` as any,
-          content: res.data || '',
+          // The studio sends GLB as base64 text over the JSON bridge
+          content: args.format === 'glb' ? Buffer.from(data, 'base64') : data,
           overwrite: args.overwrite
         });
         return {

@@ -140,6 +140,7 @@ export class SceneQueries {
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
 
     for (const item of targetNodes) {
+      if (!item.node.primitive) continue;
       const localBounds = this.getPrimitiveLocalBounds(item.node.primitive.type, item.node.primitive.dimensions);
       const mods = item.node.modifiers || {};
 

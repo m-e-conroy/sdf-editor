@@ -168,7 +168,7 @@ describe('Task 0.5: Unified CPU SdfEvaluator', () => {
 
   it('evaluates modifiers: rounding and shell thickness', () => {
     const node = CSGTree.createDefaultNode('box', 'Rounded Hollow Box');
-    node.primitive.dimensions.size = [1.0, 1.0, 1.0];
+    node.primitive!.dimensions.size = [1.0, 1.0, 1.0];
     node.modifiers = {
       roundRadius: 0.1,
       shellThickness: 0.05
@@ -186,7 +186,7 @@ describe('Task 0.6: SceneQueries', () => {
   it('computes accurate bounds for scene primitives', () => {
     const tree = new CSGTree();
     const sphere = CSGTree.createDefaultNode('sphere');
-    sphere.primitive.dimensions.radius = 1.5;
+    sphere.primitive!.dimensions.radius = 1.5;
     sphere.transform.position = [2.0, 0, 0];
     tree.root.children = [sphere];
 
@@ -200,7 +200,7 @@ describe('Task 0.6: SceneQueries', () => {
   it('samples signed distance at multiple points', () => {
     const tree = new CSGTree();
     const sphere = CSGTree.createDefaultNode('sphere');
-    sphere.primitive.dimensions.radius = 1.0;
+    sphere.primitive!.dimensions.radius = 1.0;
     sphere.transform.position = [0, 0, 0];
     tree.root.children = [sphere];
 
@@ -220,7 +220,7 @@ describe('Task 0.6: SceneQueries', () => {
   it('estimates volume for a unit sphere (~4.188)', () => {
     const tree = new CSGTree();
     const sphere = CSGTree.createDefaultNode('sphere');
-    sphere.primitive.dimensions.radius = 1.0;
+    sphere.primitive!.dimensions.radius = 1.0;
     sphere.transform.position = [0, 0, 0];
     tree.root.children = [sphere];
 
@@ -262,7 +262,7 @@ describe('Task 0.8: MeshExporter ArrayBuffer & Dynamic Auto Bounds', () => {
   it('computes dynamic marching cubes bounds with 10% padding margin', () => {
     const tree = new CSGTree();
     const box = CSGTree.createDefaultNode('box');
-    box.primitive.dimensions.size = [1.0, 1.0, 1.0]; // Extents [-1, 1]
+    box.primitive!.dimensions.size = [1.0, 1.0, 1.0]; // Extents [-1, 1]
     box.transform.position = [0, 0, 0];
     tree.root.children = [box];
 

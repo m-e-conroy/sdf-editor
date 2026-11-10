@@ -180,8 +180,7 @@ describe('SceneStore', () => {
 
     it('should remove node with undo/redo capability', () => {
       // Arrange
-      const box = store.tree.root.children[0];
-      const cutter = box.children[0];
+      const cutter = store.tree.root.children[1];
       store.selectNode(cutter.id);
 
       // Act: Remove node
@@ -189,7 +188,7 @@ describe('SceneStore', () => {
 
       // Assert
       expect(store.tree.findNode(cutter.id)).toBeNull();
-      expect(store.selectedNodeId).toBe(box.id);
+      expect(store.selectedNodeId).toBe(store.tree.root.id);
 
       // Act: Undo
       store.undo();
@@ -225,20 +224,22 @@ describe('SceneStore', () => {
 
     it('should reparent node with undo/redo preserving index', () => {
       // Arrange
-      const box = store.tree.root.children[0];
-      const cutter = box.children[0];
+      const cutter = store.tree.root.children[1];
+      const group = CSGTree.createGroupNode('Target Group');
+      store.tree.addNode(group);
 
-      // Act: Reparent cutter to root
-      store.reparentNode(cutter.id, store.tree.root.id);
+      // Act: Reparent cutter into group
+      store.reparentNode(cutter.id, group.id);
 
       // Assert
-      expect(store.tree.findParent(cutter.id)).toBe(store.tree.root);
+      expect(store.tree.findParent(cutter.id)).toBe(group);
 
       // Act: Undo
       store.undo();
 
       // Assert
-      expect(store.tree.findParent(cutter.id)).toBe(box);
+      expect(store.tree.findParent(cutter.id)).toBe(store.tree.root);
+      expect(store.tree.root.children[1]).toBe(cutter);
     });
   });
 

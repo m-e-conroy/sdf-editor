@@ -19,11 +19,13 @@ import { CSGTree } from '../tree/CSGTree';
 import type { SDFNode, PrimitiveType } from '../tree/types';
 import { SceneQueries } from '../engine/SceneQueries';
 import { ShaderExporter } from '../engine/ShaderExporter';
-import { exportGLB, exportOBJ, computeAutoBounds } from '../engine/MeshExporter';
+import { generateGLBBuffer, exportOBJ, computeAutoBounds } from '../engine/MeshExporter';
 import { MeshExtractor } from '../engine/MeshExtractor';
 import { countLeaves } from '../engine/SceneLimits';
 import type { AgentBridge } from './AgentBridge';
 import type { RaymarchRenderer } from '../engine/RaymarchRenderer';
+
+const toVec3 = (v: number[]): [number, number, number] => [v[0], v[1], v[2]];
 
 export class BridgeDispatcher {
   private bridge: AgentBridge;
@@ -82,7 +84,7 @@ export class BridgeDispatcher {
         // --- 1. Scene Read & Introspection ---
         case 'scene.getScene':
         case 'scene.get': {
-          result = this.handleGetScene(params);
+          result = this.handleGetScene();
           break;
         }
 
@@ -226,7 +228,7 @@ export class BridgeDispatcher {
 
   // --- Handlers ---
 
-  private handleGetScene(params: any): any {
+  private handleGetScene(): any {
     const root = this.sceneStore.tree.root;
 
     const countNodes = (n: SDFNode): { leaves: number; groups: number; depth: number } => {
@@ -261,11 +263,11 @@ export class BridgeDispatcher {
     const type: PrimitiveType = params.type || 'sphere';
     const newNode = CSGTree.createDefaultNode(type, params.name);
 
-    if (params.dimensions) {
+    if (params.dimensions && newNode.primitive) {
       newNode.primitive.dimensions = { ...newNode.primitive.dimensions, ...params.dimensions };
     }
     if (params.position) {
-      newNode.transform.position = [...params.position];
+      newNode.transform.position = toVec3(params.position);
     }
     if (params.rotationDeg) {
       // Convert degrees to radians
@@ -276,7 +278,7 @@ export class BridgeDispatcher {
       ];
     }
     if (params.scale) {
-      newNode.transform.scale = [...params.scale];
+      newNode.transform.scale = toVec3(params.scale);
     }
     if (params.operation) {
       newNode.csg.operation = params.operation;
@@ -346,7 +348,7 @@ export class BridgeDispatcher {
 
     if (updates.position || updates.rotationDeg || updates.scale) {
       cleanUpdates.transform = { ...node.transform };
-      if (updates.position) cleanUpdates.transform.position = [...updates.position];
+      if (updates.position) cleanUpdates.transform.position = toVec3(updates.position);
       if (updates.rotationDeg) {
         cleanUpdates.transform.rotation = [
           (updates.rotationDeg[0] * Math.PI) / 180,
@@ -354,10 +356,10 @@ export class BridgeDispatcher {
           (updates.rotationDeg[2] * Math.PI) / 180
         ];
       }
-      if (updates.scale) cleanUpdates.transform.scale = [...updates.scale];
+      if (updates.scale) cleanUpdates.transform.scale = toVec3(updates.scale);
     }
 
-    if (updates.dimensions) {
+    if (updates.dimensions && node.primitive) {
       cleanUpdates.primitive = {
         ...node.primitive,
         dimensions: { ...node.primitive.dimensions, ...updates.dimensions }
@@ -411,16 +413,18 @@ export class BridgeDispatcher {
 
   private handleDuplicateNode(params: any): any {
     let dupNode: SDFNode | null = null;
+    const source = this.sceneStore.tree.findNode(params.nodeId);
     this.sceneStore.transaction(`Duplicate ${params.nodeId}`, () => {
       dupNode = this.sceneStore.duplicateNode(params.nodeId);
-      if (dupNode && params.offset) {
+      // An explicit offset is relative to the source, replacing the UI's default nudge
+      if (dupNode && source && params.offset) {
         this.sceneStore.updateNode(dupNode.id, {
           transform: {
             ...dupNode.transform,
             position: [
-              dupNode.transform.position[0] + params.offset[0],
-              dupNode.transform.position[1] + params.offset[1],
-              dupNode.transform.position[2] + params.offset[2]
+              source.transform.position[0] + params.offset[0],
+              source.transform.position[1] + params.offset[1],
+              source.transform.position[2] + params.offset[2]
             ]
           }
         });
@@ -521,11 +525,11 @@ export class BridgeDispatcher {
         refs[recNode.ref] = node.id;
       }
 
-      if (recNode.dimensions) {
+      if (recNode.dimensions && node.primitive) {
         node.primitive.dimensions = { ...node.primitive.dimensions, ...recNode.dimensions };
       }
       if (recNode.position) {
-        node.transform.position = [...recNode.position];
+        node.transform.position = toVec3(recNode.position);
       }
       if (recNode.rotationDeg) {
         node.transform.rotation = [
@@ -535,7 +539,7 @@ export class BridgeDispatcher {
         ];
       }
       if (recNode.scale) {
-        node.transform.scale = [...recNode.scale];
+        node.transform.scale = toVec3(recNode.scale);
       }
       if (recNode.operation) {
         node.csg.operation = recNode.operation;
@@ -776,6 +780,9 @@ export class BridgeDispatcher {
 
   private async handleExportMesh(requestId: string, params: any): Promise<any> {
     const format = params?.format || 'glb';
+    if (format === 'glsl') {
+      return this.handleExportShader(params);
+    }
     const resolution = typeof params?.resolution === 'string' ? parseInt(params.resolution, 10) : (params?.resolution || 64);
     const filename = params?.filename || `model.${format}`;
 
@@ -806,7 +813,7 @@ export class BridgeDispatcher {
         data: objText
       };
     } else {
-      const glbBuffer = exportGLB(result.positions, result.normals, '#e2e8f0');
+      const glbBuffer = generateGLBBuffer(result.positions, result.normals, '#e2e8f0');
       // Encode as Base64 for JSON transfer
       let binary = '';
       const bytes = new Uint8Array(glbBuffer);
@@ -814,7 +821,7 @@ export class BridgeDispatcher {
       for (let i = 0; i < len; i++) {
         binary += String.fromCharCode(bytes[i]);
       }
-      const base64 = typeof btoa !== 'undefined' ? btoa(binary) : Buffer.from(glbBuffer).toString('base64');
+      const base64 = btoa(binary);
 
       return {
         filename,

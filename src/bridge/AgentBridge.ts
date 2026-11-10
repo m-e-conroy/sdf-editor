@@ -11,8 +11,7 @@ import {
   type WelcomeEnvelope,
   type RequestEnvelope,
   type ProgressEnvelope,
-  type ResponseEnvelope,
-  type BridgeEnvelope
+  type ResponseEnvelope
 } from '../../shared/protocol/envelope';
 
 export type BridgeStatus = 'off' | 'listening' | 'connected' | 'parked';
@@ -44,7 +43,6 @@ export class AgentBridge extends EventTarget {
   private heartbeatTimeoutMs: number;
   private pingTimer: any = null;
   private watchdogTimer: any = null;
-  private lastMessageTimestamp: number = 0;
 
   // Exponential Backoff Reconnection
   private reconnectTimer: any = null;
@@ -164,7 +162,7 @@ export class AgentBridge extends EventTarget {
     this.ws.onopen = () => this.handleOpen();
     this.ws.onmessage = (event) => this.handleMessage(event);
     this.ws.onerror = (event) => this.handleError(event);
-    this.ws.onclose = (event) => this.handleClose(event);
+    this.ws.onclose = () => this.handleClose();
   }
 
   /**
@@ -231,7 +229,6 @@ export class AgentBridge extends EventTarget {
 
   private handleOpen(): void {
     this.reconnectAttempt = 0;
-    this.lastMessageTimestamp = Date.now();
 
     // Send Hello Handshake
     const effectiveToken = this.token || 'sdf-studio-bridge';
@@ -248,7 +245,6 @@ export class AgentBridge extends EventTarget {
   }
 
   private handleMessage(event: MessageEvent): void {
-    this.lastMessageTimestamp = Date.now();
     this.resetWatchdogTimer();
 
     let msg: any;
@@ -300,7 +296,7 @@ export class AgentBridge extends EventTarget {
     this.emitError(new Error(`WebSocket error on bridge: ${event.type}`));
   }
 
-  private handleClose(event: CloseEvent): void {
+  private handleClose(): void {
     this.clearTimers();
     this.sessionId = null;
 

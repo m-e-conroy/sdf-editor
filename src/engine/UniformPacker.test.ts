@@ -203,7 +203,7 @@ describe('UniformPacker', () => {
   describe('Primitive Dimensions Packing', () => {
     it('should pack sphere radius into dimensions.x', () => {
       const node = CSGTree.createDefaultNode('sphere');
-      node.primitive.dimensions.radius = 1.25;
+      node.primitive!.dimensions.radius = 1.25;
       tree.root.children = [node];
 
       const packed = UniformPacker.pack(tree);
@@ -212,7 +212,7 @@ describe('UniformPacker', () => {
 
     it('should pack box size into dimensions.xyz', () => {
       const node = CSGTree.createDefaultNode('box');
-      node.primitive.dimensions.size = [0.4, 0.5, 0.6];
+      node.primitive!.dimensions.size = [0.4, 0.5, 0.6];
       tree.root.children = [node];
 
       const packed = UniformPacker.pack(tree);
@@ -223,8 +223,8 @@ describe('UniformPacker', () => {
 
     it('should pack cylinder height and radius into dimensions.xy', () => {
       const node = CSGTree.createDefaultNode('cylinder');
-      node.primitive.dimensions.height = 1.1;
-      node.primitive.dimensions.radius = 0.45;
+      node.primitive!.dimensions.height = 1.1;
+      node.primitive!.dimensions.radius = 0.45;
       tree.root.children = [node];
 
       const packed = UniformPacker.pack(tree);
@@ -234,8 +234,8 @@ describe('UniformPacker', () => {
 
     it('should pack torus radiusMajor and radiusMinor into dimensions.xy', () => {
       const node = CSGTree.createDefaultNode('torus');
-      node.primitive.dimensions.radiusMajor = 0.9;
-      node.primitive.dimensions.radiusMinor = 0.3;
+      node.primitive!.dimensions.radiusMajor = 0.9;
+      node.primitive!.dimensions.radiusMinor = 0.3;
       tree.root.children = [node];
 
       const packed = UniformPacker.pack(tree);
@@ -245,9 +245,9 @@ describe('UniformPacker', () => {
 
     it('should pack pipe height, radius, thickness into dimensions.xyz', () => {
       const node = CSGTree.createDefaultNode('pipe');
-      node.primitive.dimensions.height = 1.0;
-      node.primitive.dimensions.radius = 0.6;
-      node.primitive.dimensions.thickness = 0.12;
+      node.primitive!.dimensions.height = 1.0;
+      node.primitive!.dimensions.radius = 0.6;
+      node.primitive!.dimensions.thickness = 0.12;
       tree.root.children = [node];
 
       const packed = UniformPacker.pack(tree);
@@ -258,7 +258,7 @@ describe('UniformPacker', () => {
 
     it('should pack ellipsoid radii into dimensions.xyz', () => {
       const node = CSGTree.createDefaultNode('ellipsoid');
-      node.primitive.dimensions.radii = [1.2, 0.7, 0.4];
+      node.primitive!.dimensions.radii = [1.2, 0.7, 0.4];
       tree.root.children = [node];
 
       const packed = UniformPacker.pack(tree);
@@ -321,7 +321,7 @@ describe('UniformPacker', () => {
       expect(packed.inverseMatrices[0].equals(new THREE.Matrix4().identity())).toBe(true);
     });
 
-    it('should clamp nodeCount at MAX_GPU_NODES (32) when tree exceeds 32 nodes', () => {
+    it('should reject trees that exceed MAX_GPU_NODES (32) leaves', () => {
       // Arrange: Create 40 nodes
       const nodes: SDFNode[] = [];
       for (let i = 0; i < 40; i++) {
@@ -329,20 +329,15 @@ describe('UniformPacker', () => {
       }
       tree.root.children = nodes;
 
-      // Act
-      const packed = UniformPacker.pack(tree);
-
-      // Assert
-      expect(packed.nodeCount).toBe(MAX_GPU_NODES);
-      expect(packed.types).toHaveLength(MAX_GPU_NODES);
-      expect(packed.inverseMatrices).toHaveLength(MAX_GPU_NODES);
+      // Act & Assert
+      expect(() => UniformPacker.pack(tree)).toThrow(/maximum supported leaf count of 32/);
     });
   });
 
   describe('Mechanical CAD & Organic Shape Packing (Types 21-26)', () => {
     it('should pack capped_torus dimensions (R, r, arcAngle)', () => {
       const node = CSGTree.createDefaultNode('capped_torus');
-      node.primitive.dimensions = { radiusMajor: 0.9, radiusMinor: 0.2, arcAngle: Math.PI / 3 };
+      node.primitive!.dimensions = { radiusMajor: 0.9, radiusMinor: 0.2, arcAngle: Math.PI / 3 };
       tree.root.children = [node];
       const packed = UniformPacker.pack(tree);
       expect(packed.types[0]).toBe(21);
@@ -353,7 +348,7 @@ describe('UniformPacker', () => {
 
     it('should pack chain_link dimensions (linkLength*0.5, R, r)', () => {
       const node = CSGTree.createDefaultNode('chain_link');
-      node.primitive.dimensions = { linkLength: 0.8, radiusMajor: 0.65, radiusMinor: 0.15 };
+      node.primitive!.dimensions = { linkLength: 0.8, radiusMajor: 0.65, radiusMinor: 0.15 };
       tree.root.children = [node];
       const packed = UniformPacker.pack(tree);
       expect(packed.types[0]).toBe(22);
@@ -364,7 +359,7 @@ describe('UniformPacker', () => {
 
     it('should pack chamfer_cylinder dimensions (height*0.5, radius, chamfer)', () => {
       const node = CSGTree.createDefaultNode('chamfer_cylinder');
-      node.primitive.dimensions = { height: 1.2, radius: 0.45, chamfer: 0.06 };
+      node.primitive!.dimensions = { height: 1.2, radius: 0.45, chamfer: 0.06 };
       tree.root.children = [node];
       const packed = UniformPacker.pack(tree);
       expect(packed.types[0]).toBe(23);
@@ -375,7 +370,7 @@ describe('UniformPacker', () => {
 
     it('should pack egg dimensions (baseRadius, tipRadius, height)', () => {
       const node = CSGTree.createDefaultNode('egg');
-      node.primitive.dimensions = { baseRadius: 0.55, tipRadius: 0.2, height: 0.95 };
+      node.primitive!.dimensions = { baseRadius: 0.55, tipRadius: 0.2, height: 0.95 };
       tree.root.children = [node];
       const packed = UniformPacker.pack(tree);
       expect(packed.types[0]).toBe(24);
@@ -386,7 +381,7 @@ describe('UniformPacker', () => {
 
     it('should pack heart dimensions (size, thickness)', () => {
       const node = CSGTree.createDefaultNode('heart');
-      node.primitive.dimensions = { radius: 0.85, thickness: 0.18 };
+      node.primitive!.dimensions = { radius: 0.85, thickness: 0.18 };
       tree.root.children = [node];
       const packed = UniformPacker.pack(tree);
       expect(packed.types[0]).toBe(25);
@@ -396,7 +391,7 @@ describe('UniformPacker', () => {
 
     it('should pack star_prism dimensions (outerRadius, innerRadius, height*0.5)', () => {
       const node = CSGTree.createDefaultNode('star_prism');
-      node.primitive.dimensions = { outerRadius: 0.8, innerRadius: 0.38, height: 0.5 };
+      node.primitive!.dimensions = { outerRadius: 0.8, innerRadius: 0.38, height: 0.5 };
       tree.root.children = [node];
       const packed = UniformPacker.pack(tree);
       expect(packed.types[0]).toBe(26);
