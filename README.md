@@ -7,7 +7,7 @@
 
 [![Vite 6](https://img.shields.io/badge/Vite-6.0-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![TypeScript 5.6](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Model Context Protocol](https://img.shields.io/badge/MCP-Protocol_1.6-8A2BE2?style=flat-square&logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
+[![Model Context Protocol](https://img.shields.io/badge/MCP_SDK-1.32-8A2BE2?style=flat-square&logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
 [![Three.js r170](https://img.shields.io/badge/Three.js-r170-black?style=flat-square&logo=three.js&logoColor=white)](https://threejs.org/)
 [![Web Components](https://img.shields.io/badge/UI-Native_Web_Components-EA7600?style=flat-square)](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
 [![WebGL2 Raymarching](https://img.shields.io/badge/Rendering-WebGL2_Raymarching-990000?style=flat-square&logo=webgl&logoColor=white)](https://www.khronos.org/webgl/)
@@ -29,7 +29,7 @@ Traditional 3D modeling tools rely on boundary representation (B-Rep) or polygon
 **SDF Studio 3D** models shapes as **Signed Distance Fields (SDFs)**—pure mathematical functions that compute the exact distance from any point in space to the surface:
 
 1. **Framework-Free Native Web Components Architecture**: Built from the ground up using W3C Custom Elements and CSS custom properties. Zero React, Vue, Angular, or external UI component libraries—offering microsecond DOM updates, tiny bundle overhead, and instant startup.
-2. **Real-Time WebGL2 Sphere Tracing**: Evaluates up to 32 hierarchical CSG operations per frame on a full-viewport screen-space quad, achieving rock-solid 60 FPS lookdev rendering.
+2. **Real-Time WebGL2 Sphere Tracing**: Evaluates up to 32 hierarchical CSG leaves on a full-viewport screen-space quad, with bounding-volume culling that skips far-away shapes and groups, on-demand rendering, and adaptive resolution while you orbit or drag (see [Viewport Performance](#8-viewport-performance)).
 3. **Smooth Polynomial CSG Booleans**: Organic blending between hard mechanical shapes and flowing forms without seams, pinched vertices, or normal artifacts, complete with seamless material interpolation.
 4. **AI Agent Bridge & Model Context Protocol (MCP)**: Features a dedicated stdio MCP Server and in-browser WebSocket Agent Bridge. AI models and coding agents (Claude, Cursor, Antigravity, Gemini) can programmatically inspect scene state, craft declarative CSG recipes, execute visual checks via multi-angle rendered snapshots, and export assets autonomously.
 5. **Non-Blocking Marching Cubes Web Worker**: When you are ready to export, a dedicated multi-threaded Web Worker polygonizes the implicit field into watertight triangle meshes at 32³, 64³, or 128³ grid resolutions without freezing the UI.
@@ -71,9 +71,12 @@ SDF Studio 3D is designed for seamless human-AI co-creation. With its built-in *
 
 ### 1. Starting the MCP Server
 
-Build and launch the MCP server in your terminal:
+Install the server's dependencies once, then build and launch it:
 
 ```bash
+# One-time install (run inside the folder; `npm install --prefix mcp-server` from the root does not work)
+cd mcp-server && npm install && cd ..
+
 # Build the TypeScript MCP server (syncs shared/protocol into mcp-server/src/protocol first)
 npm run mcp:build
 
@@ -84,6 +87,8 @@ npm run mcp:start
 npm run mcp:test
 ```
 
+The server exits on its own when the MCP host disconnects, so it no longer leaves an orphaned process holding port `8765`.
+
 ### 2. Client Configuration
 
 To connect SDF Studio 3D to your AI workspace, register the server in your MCP client config (e.g., `claude_desktop_config.json` or your Cline / Cursor / Antigravity MCP settings):
@@ -93,7 +98,7 @@ To connect SDF Studio 3D to your AI workspace, register the server in your MCP c
   "mcpServers": {
     "sdf-studio-3d": {
       "command": "node",
-      "args": ["f:/Programming Projects/sdf-editor/mcp-server/dist/index.js"],
+      "args": ["<path-to-repo>/mcp-server/dist/index.js"],
       "env": {
         "SDF_BRIDGE_PORT": "8765",
         "SDF_BRIDGE_TOKEN": "sdf-studio-bridge"
@@ -103,11 +108,18 @@ To connect SDF Studio 3D to your AI workspace, register the server in your MCP c
 }
 ```
 
+| Variable           | Default                         | Purpose                                                                                              |
+| :----------------- | :------------------------------ | :--------------------------------------------------------------------------------------------------- |
+| `SDF_BRIDGE_PORT`  | `8765`                          | Local WebSocket port the browser tab connects to.                                                    |
+| `SDF_BRIDGE_TOKEN` | `sdf-studio-bridge`             | Pairing token. When you set your own, the browser **must** use the same one (see below).             |
+| `SDF_STUDIO_URL`   | `http://localhost:3000`         | Studio address used in the "not connected" hint returned to agents.                                  |
+| `SDF_EXPORT_DIR`   | `./exports` (server's cwd)      | Sandbox folder `sdf_export` writes into. Set an absolute path, since MCP hosts start servers from arbitrary directories. |
+
 ### 3. Automatic Browser Pairing
 
 When SDF Studio 3D opens in your browser, the `AgentBridge` automatically connects to `ws://127.0.0.1:8765`.
 
-- **Pairing Token**: Set via URL hash (e.g. `http://localhost:3000/#bridge=sdf-studio-bridge`) or stored in `localStorage`.
+- **Pairing Token**: Set via URL hash (e.g. `http://localhost:3000/#bridge=sdf-studio-bridge`) or stored in `localStorage`. The default token pairs automatically. If you configure a custom `SDF_BRIDGE_TOKEN`, only that exact token is accepted, so open the studio with `#bridge=<your-token>`.
 - **Status Telemetry**: Displays real-time connection status (`off`, `listening`, `connected`, `parked`) with automatic exponential backoff reconnection.
 
 ### 4. Complete MCP Tool Suite (19 Tools)
@@ -134,7 +146,7 @@ The MCP server provides 19 tools across 6 operational categories:
 | **Camera & Viewport**     | `sdf_set_camera`         | Positions camera view (`perspective`, `front`, `right`, `top`) with azimuth, elevation, and distance.          |
 |                           | `sdf_select_node`        | Focuses and highlights a specific node in the artist's viewport or clears selection.                           |
 | **History Stack**         | `sdf_history`            | Steps forward or backward through the 50-step undo/redo stack (`action: 'undo' \| 'redo'`).                    |
-| **Pipeline Export**       | `sdf_export`             | Polygonizes the active scene and writes compliant `.glb`, `.obj`, or `.glsl` directly to disk.                 |
+| **Pipeline Export**       | `sdf_export`             | Polygonizes the scene and writes a binary `.glb` or `.obj` mesh, or a standalone `.glsl` shader, to the export sandbox. |
 
 ### 5. MCP Resources & Prompts
 
@@ -151,7 +163,9 @@ The MCP server provides 19 tools across 6 operational categories:
 
 - **Single-Undo Guarantee**: Complex models generated via `sdf_apply_scene_recipe` are bundled into a `CompositeCommand`, ensuring an entire multi-primitive assembly rolls back cleanly in one `Ctrl+Z`.
 - **Race Condition Prevention**: Every scene mutation increments a monotonic `revision` counter. MCP calls can pass `expectedRevision` to ensure no collisions occur with concurrent human edits.
-- **Budget Guardrails**: Enforces `MAX_LEAVES = 32`, `MAX_INSTRUCTIONS = 64`, and `MAX_DEPTH = 8` to guarantee stable 60 FPS real-time raymarching.
+- **Budget Guardrails**: Enforces `MAX_LEAVES = 32`, `MAX_INSTRUCTIONS = 64`, and `MAX_DEPTH = 8` to keep real-time raymarching stable.
+- **Separate Undo for Agents**: An agent edit that arrives while you are dragging a gizmo or slider is recorded as its own undo step, never merged into yours.
+- **Untrusted Text Is Escaped**: Node names, colors, and values from agents or imported `.sdf.json` files are displayed as plain text in the Outliner and Inspector and cannot inject HTML or script.
 
 ---
 
@@ -203,9 +217,9 @@ Crafted with the ergonomics of modern Digital Content Creation (DCC) suites:
 - **Dockable & Floating Windows**: Freely drag, resize, dock to Left/Right viewport edges, or park panels in a glassmorphic bottom shelf tray.
 - **Lookdev Glassmorphic Viewport HUD**: Quick-access controls for instant matcap switching, shadow toggling, ambient occlusion, camera snapping, and contact sheet generation.
 - **Hierarchical Outliner**: Full tree view of primitives and CSG groups with drag-and-drop reparenting, visibility toggles, and deletion.
-- **Properties Inspector**: Real-time scrubbers for positions, rotations, dimensions, modifiers, materials, and blend factors.
+- **Properties Inspector**: Real-time scrubbers for positions, rotations, dimensions, modifiers, materials, and blend factors. Dragging a slider or the color picker is recorded as **one undo step**.
 - **Floating Shape Palette**: Fast visual picker for immediate primitive instantiation.
-- **Interactive 3D Transform Gizmo**: Integrated Three.js `TransformControls` for direct viewport manipulation (Translate, Rotate, Scale).
+- **Interactive 3D Transform Gizmo**: Integrated Three.js `TransformControls` for direct viewport manipulation (Translate, Rotate, Scale). A complete move, rotate, or scale drag, from press to release, is **one undo step**.
 
 ### 5. Lookdev Shading Modes & Visual Effects
 
@@ -236,6 +250,18 @@ Extract watertight triangle meshes from implicit mathematical fields without fre
 - **Standalone Shadertoy GLSL**: Generates self-contained, copy-pasteable GLSL fragment code with camera orbits and analytic distance functions ready to run on [shadertoy.com](https://www.shadertoy.com).
 - **Native `.sdf.json` Project Document**: JSON-serialized CSG Abstract Syntax Tree (AST) preserving hierarchy, transforms, modifiers, and material configurations.
 
+### 8. Viewport Performance
+
+Rendering cost grows with the number of primitives, so the viewport avoids work wherever it can:
+
+- **Bounding-Volume Culling**: Each primitive and each multi-shape group carries a bounding sphere. Where a ray is far from it, the shader uses the cheap sphere distance instead of evaluating the shape or the whole group. Image quality is unchanged.
+- **On-Demand Rendering**: The viewport only redraws when the camera, scene, selection, or display settings change. An idle scene costs no GPU time.
+- **Adaptive Resolution**: While you orbit, pan, zoom, or drag, frames render at half resolution, then sharpen automatically 200 ms after you stop.
+
+Measured on a 1956×1126 viewport, frame time for a 32-shape scene dropped from about 300 ms to about 100 ms at full resolution (about 27 ms while interacting). Grouped scenes benefit most: 24 shapes in nested groups render in about 50 ms, down from 263 ms.
+
+> 💡 _Tip_: Organize related shapes into groups. Group-level culling lets the renderer skip whole assemblies that are off to the side of each ray.
+
 ---
 
 ## ⌨️ Viewport Navigation & Keyboard Shortcuts
@@ -252,7 +278,7 @@ Extract watertight triangle meshes from implicit mathematical fields without fre
 | **G** / **W**                                     | Move Gizmo    | Switches 3D viewport gizmo to Translation / Move mode        |
 | **R** / **E**                                     | Rotate Gizmo  | Switches 3D viewport gizmo to Orbital Rotation mode          |
 | **S**                                             | Scale Gizmo   | Switches 3D viewport gizmo to Proportional / Axis Scale mode |
-| **Ctrl + Z** / **Cmd + Z**                        | Undo          | Rolls back the last scene modification (50 steps)            |
+| **Ctrl + Z** / **Cmd + Z**                        | Undo          | Rolls back the last scene modification (50 steps). A whole gizmo drag or slider drag counts as one step |
 | **Ctrl + Y** / **Cmd + Shift + Z**                | Redo          | Replays previously undone scene commands                     |
 | **Ctrl + S**                                      | Save Project  | Saves active scene as `.sdf.json` document                   |
 | **Ctrl + O**                                      | Open Project  | Prompts file picker to load an `.sdf.json` project           |
@@ -378,6 +404,10 @@ sdf-editor/
 ├── mcp-server/                # Model Context Protocol (MCP) Server package
 │   ├── package.json           # @sdf-studio/mcp-server manifests
 │   ├── tsconfig.json          # Node.js ESM TypeScript configuration
+│   ├── scripts/
+│   │   └── sync-protocol.mjs  # Copies shared/protocol into src/protocol before each build
+│   ├── test/
+│   │   └── smoke.test.ts      # Stdio + WebSocket bridge smoke tests (npm run mcp:test)
 │   └── src/
 │       ├── index.ts           # Standalone stdio MCP server entrypoint
 │       ├── hub/
@@ -390,12 +420,13 @@ sdf-editor/
 │       │   └── index.ts       # 2 generative AI prompts (model_object, refine_model)
 │       ├── fs/
 │       │   └── SafeFileWriter.ts # Sandboxed exporter to disk
-│       └── protocol/          # Shared MCP schemas and JSON-RPC types
-├── shared/                    # Shared protocol contracts between Studio & MCP
+│       └── protocol/          # Generated copy of shared/protocol (git-ignored, do not edit)
+├── shared/                    # Shared protocol contracts between Studio & MCP (single source of truth)
 │   └── protocol/
-│       ├── envelope.ts        # WebSocket packet envelope definitions
+│       ├── index.ts           # Public entrypoint
+│       ├── envelope.ts        # WebSocket packet envelope definitions & error codes
 │       ├── primitives.ts      # 22 primitive definitions & dimension schemas
-│       └── recipe.ts          # Declarative CSG recipe schemas (Zod)
+│       └── methods.ts         # RPC method names and request/result schemas (Zod 4)
 ├── src/
 │   ├── main.ts                # Application bootstrapper and Web Component registry
 │   ├── bridge/                # Live WebSocket Agent Bridge
@@ -413,9 +444,9 @@ sdf-editor/
 │   │   ├── SdfStatusBar.ts    # Live telemetry readout (FPS, Node count, Resolution)
 │   │   └── SdfExportModal.ts  # Mesh extraction (.OBJ/.GLB) & shader export dialog
 │   ├── engine/                # Core raymarching, query and export engine
-│   │   ├── RaymarchRenderer.ts# WebGL2 renderer, camera orbit, gizmos & snapshots
+│   │   ├── RaymarchRenderer.ts# WebGL2 renderer, on-demand render loop, camera orbit, gizmos & snapshots
 │   │   ├── RaymarchMaterial.ts# Three.js ShaderMaterial definition & uniforms
-│   │   ├── UniformPacker.ts   # Serializes CSG tree into compact WebGL2 uniform arrays
+│   │   ├── UniformPacker.ts   # Serializes CSG tree into uniform arrays, incl. culling bounds
 │   │   ├── SceneQueries.ts    # Analytical bounds, Monte Carlo volume & distance sampling
 │   │   ├── SceneLimits.ts     # 32-leaf validation & budget enforcement
 │   │   ├── MeshExtractor.ts   # Web Worker coordinator for Marching Cubes
@@ -427,11 +458,13 @@ sdf-editor/
 │   │       ├── raymarch.vert.glsl # Screen-space quad vertex shader
 │   │       └── raymarch.frag.glsl # Sphere tracing, soft shadows, AO & matcaps
 │   ├── store/                 # State management & Command Pattern
-│   │   ├── SceneStore.ts      # Reactive scene store with 50-step undo/redo stack & revision
+│   │   ├── SceneStore.ts      # Scene store: 50-step undo/redo, drag gestures as single steps, revision
 │   │   └── WorkspaceStore.ts  # Docking, floating, and window layout persistence
 │   ├── tree/                  # CSG Abstract Syntax Tree (AST)
 │   │   ├── types.ts           # SDFNode, Primitive, Modifier, and Scene schema
 │   │   └── CSGTree.ts         # Hierarchical tree queries, transforms & serialization
+│   ├── utils/
+│   │   └── escapeHtml.ts      # Escapes untrusted text before it is rendered as HTML
 │   ├── workers/               # Multi-threaded background tasks
 │   │   ├── marchingCubes.worker.ts # Pure CPU Marching Cubes algorithm
 │   │   └── marchingCubesTables.ts  # Edge lookup and triangle triangulation tables
@@ -440,7 +473,7 @@ sdf-editor/
 │       ├── tokens.css         # Dark & Light palette variables and design tokens
 │       ├── typography.css     # Inter & JetBrains Mono font configurations
 │       └── animations.css     # Keyframes for window docks, fades & HUD elements
-└── tests/                     # Unit & integration test suites (Vitest)
+└── (tests)                    # Vitest suites live next to their sources as *.test.ts
 ```
 
 ---
@@ -477,6 +510,9 @@ Open your browser at `http://localhost:3000/` to launch the 3D modeler.
 To enable AI agent connectivity via Claude, Cursor, Antigravity, or Cline:
 
 ```bash
+# One-time install of the server's dependencies
+cd mcp-server && npm install && cd ..
+
 # Build the MCP server
 npm run mcp:build
 
@@ -494,6 +530,9 @@ npm test
 
 # Run tests in continuous watch mode
 npm run test:watch
+
+# Build the MCP server and run its smoke tests
+npm run mcp:test
 ```
 
 ### 5. Type Checking
