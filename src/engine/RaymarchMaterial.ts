@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import vertexShader from './shaders/raymarch.vert.glsl?raw';
 import fragmentShader from './shaders/raymarch.frag.glsl?raw';
 import { MAX_GPU_NODES, PackedUniformData } from './UniformPacker';
+import { MAX_GROUP_SKIPS } from './csg/CSGCompiler';
 
 export class RaymarchMaterial extends THREE.ShaderMaterial {
   constructor() {
@@ -57,6 +58,8 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
         uNodeModifiers: { value: dummyModifiers },
         uNodeArrayModifiers: { value: dummyArrayModifiers },
         uNodeMaterials: { value: dummyMaterials },
+        uCullMargin: { value: 0.02 },
+        uGroupBounds: { value: Array.from({ length: MAX_GROUP_SKIPS }, () => new THREE.Vector4(0, 0, 0, 1e9)) },
         uInstrCount: { value: 0 },
         uInstr: { value: dummyInstructions }
       },
@@ -85,6 +88,10 @@ export class RaymarchMaterial extends THREE.ShaderMaterial {
       this.uniforms.uNodeModifiers.value[i].copy(packed.modifiers[i]);
       this.uniforms.uNodeArrayModifiers.value[i].copy(packed.arrayModifiers[i]);
       this.uniforms.uNodeMaterials.value[i].copy(packed.materials[i]);
+    }
+    this.uniforms.uCullMargin.value = packed.cullMargin;
+    for (let i = 0; i < MAX_GROUP_SKIPS; i++) {
+      this.uniforms.uGroupBounds.value[i].copy(packed.groupBounds[i]);
     }
     if (this.uniforms.uInstrCount && packed.instructions) {
       this.uniforms.uInstrCount.value = packed.instructionCount;

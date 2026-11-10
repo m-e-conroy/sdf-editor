@@ -40,6 +40,11 @@ export interface RenderContactSheetResult {
   height: number;
 }
 
+// Fraction of the device pixel ratio used while the camera, gizmo, or scene is actively changing
+const INTERACTIVE_RESOLUTION_SCALE = 0.5;
+// How long after the last change the viewport stays at reduced resolution
+const INTERACTION_SETTLE_MS = 200;
+
 export class RaymarchRenderer {
   private container: HTMLElement;
   private renderer: THREE.WebGLRenderer;
@@ -75,6 +80,13 @@ export class RaymarchRenderer {
   private frameCount = 0;
   private lastFpsUpdate = 0;
 
+  // On-demand rendering state
+  private needsRender = true;
+  private uniformsDirty = false;
+  private interactiveUntil = 0;
+  private basePixelRatio = Math.min(window.devicePixelRatio, 2);
+  private lastTheme: 'dark' | 'light' | null = null;
+
   constructor(container: HTMLElement) {
     this.container = container;
     this.clock = new THREE.Clock();
@@ -84,7 +96,7 @@ export class RaymarchRenderer {
       antialias: true,
       powerPreference: 'high-performance'
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(this.basePixelRatio);
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.container.appendChild(this.renderer.domElement);
 
@@ -116,8 +128,19 @@ export class RaymarchRenderer {
   }
 
   private setupGizmoListeners(): void {
+    // Hover highlights and drag visuals of the gizmo need a redraw
+    this.transformControls.addEventListener('change', () => this.requestRender());
+
     this.transformControls.addEventListener('dragging-changed', (event) => {
       this.isGizmoDragging = Boolean(event.value);
+      // One full move/rotate/scale drag = one undo step
+      if (this.isGizmoDragging) {
+        const mode = this.getGizmoMode();
+        const label = mode === 'translate' ? 'Move' : mode === 'rotate' ? 'Rotate' : 'Scale';
+        this.sceneStore.beginGesture(`${label} ${this.sceneStore.getSelectedNode()?.name ?? 'Object'}`);
+      } else {
+        this.sceneStore.endGesture();
+      }
     });
 
     this.transformControls.addEventListener('objectChange', () => {
@@ -193,7 +216,7 @@ export class RaymarchRenderer {
 
     this.sceneStore.addEventListener('selection-changed', syncGizmoToSelected);
     this.sceneStore.addEventListener('scene-changed', () => {
-      this.syncUniforms();
+      this.markInteracting();
       syncGizmoToSelected();
     });
 
@@ -208,6 +231,16 @@ export class RaymarchRenderer {
     this.camera.lookAt(this.target);
     this.camera.updateMatrixWorld();
     this.camera.updateProjectionMatrix();
+    this.markInteracting();
+  }
+
+  private requestRender(): void {
+    this.needsRender = true;
+  }
+
+  private markInteracting(): void {
+    this.interactiveUntil = performance.now() + INTERACTION_SETTLE_MS;
+    this.needsRender = true;
   }
 
   private setupOrbitHandlers(): void {
@@ -312,6 +345,7 @@ export class RaymarchRenderer {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(width, height);
       this.material.setResolution(width, height);
+      this.requestRender();
     });
 
     resizeObserver.observe(this.container);
@@ -322,41 +356,48 @@ export class RaymarchRenderer {
     this.syncUniforms();
   }
 
+  /** Marks GPU scene data stale; it is repacked once before the next frame or snapshot. */
   public syncUniforms(): void {
+    this.uniformsDirty = true;
+    this.needsRender = true;
+  }
+
+  private flushUniforms(): void {
+    if (!this.uniformsDirty) return;
+    this.uniformsDirty = false;
     if (this.tree) {
       const selectedId = this.sceneStore.selectedNodeId;
       const packed = UniformPacker.pack(this.tree, selectedId);
       this.material.updateNodes(packed);
 
-      const selected = this.sceneStore.getSelectedNode();
-      if (selected) {
-        const flattened = this.tree.flattenWithTransforms();
-        const selIdx = flattened.findIndex(item => item.node.id === selected.id);
-        this.material.setSelectedNodeIndex(selIdx);
-      } else {
-        this.material.setSelectedNodeIndex(-1);
-      }
+      // A selected leaf's range is [index, index]; groups are highlighted via uSelectedRange
+      const [start, end] = [packed.selectedRange.x, packed.selectedRange.y];
+      this.material.setSelectedNodeIndex(start >= 0 && start === end ? start : -1);
     }
   }
 
   // Lookdev, Matcap & Visual Controls
   public setMatcapPreset(preset: number): void {
     this.material.setMatcapPreset(preset);
+    this.requestRender();
   }
 
   public toggleShadows(enable?: boolean): void {
     this.shadowsEnabled = enable !== undefined ? enable : !this.shadowsEnabled;
     this.material.setShadowsEnabled(this.shadowsEnabled);
+    this.requestRender();
   }
 
   public toggleAO(enable?: boolean): void {
     this.aoEnabled = enable !== undefined ? enable : !this.aoEnabled;
     this.material.setAOEnabled(this.aoEnabled);
+    this.requestRender();
   }
 
   public toggleGrid(enable?: boolean): void {
     const next = enable !== undefined ? enable : !this.material.isShowGrid();
     this.material.setShowGrid(next);
+    this.requestRender();
   }
 
   public isShowGrid(): boolean {
@@ -364,6 +405,8 @@ export class RaymarchRenderer {
   }
 
   public async renderSnapshot(opts?: RenderSnapshotOptions): Promise<RenderSnapshotResult> {
+    this.flushUniforms();
+
     // 1. Non-destructive state capture
     const wasAttached = !!this.transformControls.object;
     if (wasAttached) {
@@ -487,6 +530,8 @@ export class RaymarchRenderer {
       if (wasAttached) {
         this.transformControls.attach(this.gizmoProxy);
       }
+      // The snapshot overwrote the visible canvas
+      this.requestRender();
     }
   }
 
@@ -648,19 +693,36 @@ export class RaymarchRenderer {
 
   public start(getTheme: () => 'dark' | 'light'): void {
     const renderLoop = () => {
-      const elapsedTime = this.clock.getElapsedTime();
-      this.material.updateCamera(this.camera, elapsedTime, getTheme());
-      this.renderer.render(this.scene, this.camera);
+      this.animationFrameId = requestAnimationFrame(renderLoop);
 
-      this.frameCount++;
       const now = performance.now();
+      this.frameCount++;
       if (now - this.lastFpsUpdate >= 1000) {
         this.fps = Math.round((this.frameCount * 1000) / (now - this.lastFpsUpdate));
         this.frameCount = 0;
         this.lastFpsUpdate = now;
       }
 
-      this.animationFrameId = requestAnimationFrame(renderLoop);
+      const theme = getTheme();
+      if (theme !== this.lastTheme) {
+        this.lastTheme = theme;
+        this.needsRender = true;
+      }
+
+      this.flushUniforms();
+
+      const targetRatio =
+        now < this.interactiveUntil ? this.basePixelRatio * INTERACTIVE_RESOLUTION_SCALE : this.basePixelRatio;
+      if (this.renderer.getPixelRatio() !== targetRatio) {
+        this.renderer.setPixelRatio(targetRatio);
+        this.needsRender = true;
+      }
+
+      if (!this.needsRender) return;
+      this.needsRender = false;
+
+      this.material.updateCamera(this.camera, this.clock.getElapsedTime(), theme);
+      this.renderer.render(this.scene, this.camera);
     };
 
     renderLoop();

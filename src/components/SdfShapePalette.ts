@@ -6,6 +6,7 @@
 import { CSGTree } from '../tree/CSGTree';
 import { SceneStore } from '../store/SceneStore';
 import { SHAPE_CATALOG, ShapeDefinition } from '../icons/shapeIcons';
+import { escapeHtml } from '../utils/escapeHtml';
 
 export class SdfShapePalette extends HTMLElement {
   private isOpen = false;
@@ -473,7 +474,7 @@ export class SdfShapePalette extends HTMLElement {
     });
 
     if (filtered.length === 0) {
-      grid.innerHTML = `<div class="palette-empty-msg">No shapes found matching "${this.searchQuery}".</div>`;
+      grid.innerHTML = `<div class="palette-empty-msg">No shapes found matching "${escapeHtml(this.searchQuery)}".</div>`;
       return;
     }
 

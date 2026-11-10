@@ -17,11 +17,15 @@ const int MAX_NODES = 32;
 uniform int uNodeCount;
 uniform mat4 uNodeInvMatrices[MAX_NODES];
 uniform int uNodeTypes[MAX_NODES];
-uniform vec4 uNodeDimensions[MAX_NODES];
+uniform vec4 uNodeDimensions[MAX_NODES]; // xyz: primitive dims, w: local bounding radius incl. modifiers
 uniform vec4 uNodeCSG[MAX_NODES];       // x: op, y: blendMode, z: k, w: roundRadius
 uniform vec4 uNodeModifiers[MAX_NODES]; // x: shellThickness, y: twistFactor, z: symmetryMask, w: bendFactor
 uniform vec4 uNodeArrayModifiers[MAX_NODES]; // x: radialRepeat, y: linearCount, z: linearSpacing, w: metalness
 uniform vec4 uNodeMaterials[MAX_NODES]; // xyz: color, w: roughness
+uniform float uCullMargin;              // leaves farther than this from their bound use the bound distance
+
+const int MAX_GROUP_SKIPS = 16;
+uniform vec4 uGroupBounds[MAX_GROUP_SKIPS]; // world-space sphere (xyz center, w radius) per GROUP_SKIP slot
 uniform int uShowGrid;                  // 1 = on, 0 = off
 uniform int uSelectedNodeIndex;         // -1 = none, 0..31 = selected node index
 uniform ivec2 uSelectedRange;           // (-1, -1) if none, or (startLeaf, endLeaf)
@@ -622,8 +626,79 @@ SceneHit sceneMap(vec3 p) {
     }
 }
 
+float evalLeafDist(int i, vec3 p, float margin) {
+    vec3 pNode = (uNodeInvMatrices[i] * vec4(p, 1.0)).xyz;
+    // Bounding sphere distance is a lower bound, so sphere tracing stays conservative
+    float bound = length(pNode) - uNodeDimensions[i].w;
+    if (bound > margin) return bound;
+
+    pNode = applyNodeDomainModifiers(pNode, i);
+    float d = evalPrimitive(uNodeTypes[i], pNode, uNodeDimensions[i]);
+    if (uNodeCSG[i].w > 0.0) d -= uNodeCSG[i].w;
+    if (uNodeModifiers[i].x > 0.0) d = abs(d) - uNodeModifiers[i].x;
+    return d;
+}
+
+// Distance-only stack VM: same CSG semantics as sceneMap without material bookkeeping
+float mapDist(vec3 p, float margin) {
+    float dFloor = (uShowGrid == 1) ? (p.y + 1.2) : 1e5;
+    const int MAX_STACK = 8;
+    float s[MAX_STACK];
+    int sp = 0;
+    int skipUntil = 0;
+
+    for (int i = 0; i < MAX_INSTR; i++) {
+        if (i >= uInstrCount) break;
+        if (i < skipUntil) continue;
+        vec4 instr = uInstr[i];
+        int opcode = int(instr.x);
+
+        if (opcode == 3) {
+            // GROUP_SKIP: a far-away group collapses to its bounding-sphere distance
+            vec4 gb = uGroupBounds[int(instr.y)];
+            float bound = length(p - gb.xyz) - gb.w;
+            if (bound > margin && sp < MAX_STACK) {
+                s[sp] = bound;
+                sp++;
+                skipUntil = i + 1 + int(instr.z);
+            }
+        } else if (opcode == 0) {
+            int leafIdx = int(instr.y);
+            if (leafIdx < uNodeCount && sp < MAX_STACK) {
+                s[sp] = evalLeafDist(leafIdx, p, margin);
+                sp++;
+            }
+        } else if (opcode == 1) {
+            if (sp >= 2) {
+                float a = s[sp - 2];
+                float b = s[sp - 1];
+                int op = int(instr.y);
+                bool isSmooth = int(instr.z) == 1;
+                float k = instr.w;
+                float r;
+                if (op == 0) {
+                    r = isSmooth ? sminPolynomial(a, b, k) : min(a, b);
+                } else if (op == 1) {
+                    r = isSmooth ? opSmoothDifference(a, b, k) : max(a, -b);
+                } else {
+                    r = isSmooth ? opSmoothIntersection(a, b, k) : max(a, b);
+                }
+                s[sp - 2] = r;
+                sp--;
+            }
+        } else if (opcode == 2) {
+            if (sp >= 1) {
+                if (instr.y > 0.0) s[sp - 1] -= instr.y;
+                if (instr.z > 0.0) s[sp - 1] = abs(s[sp - 1]) - instr.z;
+            }
+        }
+    }
+
+    return min(dFloor, (sp > 0) ? s[0] : 1e5);
+}
+
 float map(vec3 p) {
-    return sceneMap(p).dist;
+    return mapDist(p, uCullMargin);
 }
 
 // IQ 4-Tap Tetrahedron Normal Calculation
@@ -643,9 +718,11 @@ float calcAO(vec3 p, vec3 n) {
     if (uEnableAO == 0) return 1.0;
     float occ = 0.0;
     float sca = 1.0;
+    // AO samples up to ~0.13 off the surface; keep leaves within that range exact
+    float margin = max(uCullMargin, 0.2);
     for (int i = 0; i < 4; i++) {
         float h = 0.01 + 0.12 * float(i) / 4.0;
-        float d = map(p + h * n);
+        float d = mapDist(p + h * n, margin);
         occ += (h - d) * sca;
         sca *= 0.95;
     }
@@ -658,7 +735,8 @@ float calcShadow(vec3 ro, vec3 rd, float mint, float maxt) {
     float res = 1.0;
     float t = mint;
     for (int i = 0; i < 24; i++) {
-        float h = map(ro + rd * t);
+        // Penumbra only reads h < t/8 and steps clamp at 0.2, so culling beyond that is invisible
+        float h = mapDist(ro + rd * t, max(max(uCullMargin, 0.2), t * 0.125));
         res = min(res, 8.0 * h / t);
         t += clamp(h, 0.02, 0.2);
         if (res < 0.02 || t > maxt) break;

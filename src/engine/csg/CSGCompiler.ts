@@ -11,10 +11,13 @@ import { SDFNode, CSGOpType, BlendMode } from '../../tree/types';
 export const OPCODE_PUSH_LEAF = 0;
 export const OPCODE_COMBINE = 1;
 export const OPCODE_POST_MOD = 2;
+// Distance-only hint: arg0 = group bound slot, arg1 = instructions in the group body (no-op for exact evaluators)
+export const OPCODE_GROUP_SKIP = 3;
 
 export const MAX_STACK_DEPTH = 8;
 export const MAX_INSTRUCTIONS = 64;
 export const MAX_LEAF_COUNT = 32;
+export const MAX_GROUP_SKIPS = 16;
 
 export interface CSGInstruction {
   opcode: number; // 0 = PUSH_LEAF, 1 = COMBINE, 2 = POST_MOD
@@ -30,11 +33,23 @@ export interface CompiledLeaf {
   inverseWorldMatrix: THREE.Matrix4;
 }
 
+export interface CompiledGroupSkip {
+  node: SDFNode;
+  leafRange: [number, number];
+}
+
 export interface CompiledScene {
   leaves: CompiledLeaf[];
   instructions: CSGInstruction[];
   nodeLeafRanges: Map<string, [number, number]>;
   maxStackDepth: number;
+  /** Groups wrapped in GROUP_SKIP instructions, indexed by the instruction's arg0. */
+  groupSkips: CompiledGroupSkip[];
+}
+
+export interface CompileOptions {
+  /** Emit GROUP_SKIP hints for the largest groups, within the spare instruction budget. */
+  groupSkips?: boolean;
 }
 
 export class CSGCompiler {
@@ -54,10 +69,36 @@ export class CSGCompiler {
   /**
    * Compiles an SDF tree into an ordered leaf array and postfix instructions.
    */
-  public static compile(tree: CSGTree): CompiledScene {
+  public static compile(tree: CSGTree, options: CompileOptions = {}): CompiledScene {
+    const base = this.compileWith(tree, null);
+    if (!options.groupSkips) return base;
+
+    const budget = Math.min(MAX_GROUP_SKIPS, MAX_INSTRUCTIONS - base.instructions.length);
+    if (budget <= 0) return base;
+
+    // Skipping pays off most for groups hiding many leaves; single-leaf groups are covered by leaf culling
+    const leafCount = (id: string) => {
+      const [start, end] = base.nodeLeafRanges.get(id) ?? [-1, -1];
+      return start < 0 ? 0 : end - start + 1;
+    };
+    const chosen = base.groupNodes
+      .filter((g) => leafCount(g.id) >= 2)
+      .sort((a, b) => leafCount(b.id) - leafCount(a.id))
+      .slice(0, budget);
+    if (chosen.length === 0) return base;
+
+    return this.compileWith(tree, new Set(chosen.map((g) => g.id)));
+  }
+
+  private static compileWith(
+    tree: CSGTree,
+    skipGroupIds: Set<string> | null
+  ): CompiledScene & { groupNodes: SDFNode[] } {
     const leaves: CompiledLeaf[] = [];
     const instructions: CSGInstruction[] = [];
     const nodeLeafRanges = new Map<string, [number, number]>();
+    const groupSkips: CompiledGroupSkip[] = [];
+    const groupNodes: SDFNode[] = [];
 
     let currentStackDepth = 0;
     let maxStackDepth = 0;
@@ -134,6 +175,14 @@ export class CSGCompiler {
 
       let groupStart = -1;
       let groupEnd = -1;
+      groupNodes.push(node);
+
+      let skipIndex = -1;
+      if (skipGroupIds?.has(node.id)) {
+        skipIndex = instructions.length;
+        emitInstruction({ opcode: OPCODE_GROUP_SKIP, arg0: groupSkips.length, arg1: 0, arg2: 0 });
+        groupSkips.push({ node, leafRange: [-1, -1] });
+      }
 
       // 1. Compile first visible child to initialize group evaluation
       const firstChild = visibleChildren[0];
@@ -177,6 +226,11 @@ export class CSGCompiler {
 
       const range: [number, number] = [groupStart, groupEnd];
       nodeLeafRanges.set(node.id, range);
+      if (skipIndex >= 0) {
+        const skip = instructions[skipIndex];
+        skip.arg1 = instructions.length - skipIndex - 1;
+        groupSkips[skip.arg0].leafRange = range;
+      }
       return { startLeaf: groupStart, endLeaf: groupEnd };
     };
 
@@ -188,7 +242,9 @@ export class CSGCompiler {
       leaves,
       instructions,
       nodeLeafRanges,
-      maxStackDepth
+      maxStackDepth,
+      groupSkips,
+      groupNodes
     };
   }
 }

@@ -327,5 +327,102 @@ describe('SceneStore', () => {
       expect(store.tree.root.children.length).toBe(initialCount + 1);
     });
   });
+
+  describe('Pointer Gestures (single undo per drag)', () => {
+    const dragBox = (ticks: number) => {
+      const box = store.tree.root.children[0];
+      store.beginGesture('Move Base Box');
+      for (let i = 1; i <= ticks; i++) {
+        store.updateNode(box.id, { transform: { ...box.transform, position: [i * 0.01, 0, 0] } });
+      }
+      store.endGesture();
+      return box;
+    };
+
+    it('should record a whole drag as one undo step', () => {
+      const box = store.tree.root.children[0];
+      const start = [...box.transform.position];
+
+      dragBox(500);
+      expect(box.transform.position[0]).toBeCloseTo(5);
+
+      expect(store.undo()).toBe(true);
+      expect(box.transform.position).toEqual(start);
+      expect(store.canUndo()).toBe(false);
+
+      store.redo();
+      expect(box.transform.position[0]).toBeCloseTo(5);
+    });
+
+    it('should still notify the scene on every tick but history only once', () => {
+      const sceneChangedSpy = vi.fn();
+      const historyChangedSpy = vi.fn();
+      store.addEventListener('scene-changed', sceneChangedSpy);
+      store.addEventListener('history-changed', historyChangedSpy);
+      const startRevision = store.revision;
+
+      dragBox(20);
+
+      expect(sceneChangedSpy).toHaveBeenCalledTimes(20);
+      expect(historyChangedSpy).toHaveBeenCalledTimes(1);
+      expect(store.revision).toBe(startRevision + 20);
+    });
+
+    it('should persist to localStorage once at the end of the gesture', () => {
+      dragBox(30);
+      expect(localStorage.setItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not add an undo step for a gesture without edits', () => {
+      store.beginGesture('Click without drag');
+      store.endGesture();
+      expect(store.canUndo()).toBe(false);
+    });
+
+    it('should commit the open gesture before undoing', () => {
+      const box = store.tree.root.children[0];
+      const start = [...box.transform.position];
+      store.beginGesture('Move Base Box');
+      store.updateNode(box.id, { transform: { ...box.transform, position: [2, 0, 0] } });
+
+      store.undo();
+
+      expect(store.isGestureActive()).toBe(false);
+      expect(box.transform.position).toEqual(start);
+    });
+
+    it('should keep an agent transaction separate from the user gesture it interrupts', () => {
+      const box = store.tree.root.children[0];
+      const cutter = store.tree.root.children[1];
+      store.beginGesture('Move Base Box');
+      store.updateNode(box.id, { transform: { ...box.transform, position: [1, 0, 0] } });
+      store.transaction('Agent Rename', () => store.updateNode(cutter.id, { name: 'Agent Cutter' }));
+      store.updateNode(box.id, { transform: { ...box.transform, position: [2, 0, 0] } });
+      store.endGesture();
+
+      store.undo();
+      expect(box.transform.position[0]).toBeCloseTo(1);
+      expect(cutter.name).toBe('Agent Cutter');
+
+      store.undo();
+      expect(cutter.name).toBe('Cutter Sphere');
+
+      store.undo();
+      expect(box.transform.position[0]).toBeCloseTo(0);
+    });
+
+    it('should keep live child objects when undoing an edit on a group', () => {
+      const group = CSGTree.createGroupNode('Group');
+      const child = CSGTree.createDefaultNode('sphere');
+      group.children.push(child);
+      store.tree.addNode(group);
+
+      store.updateNode(group.id, { name: 'Renamed Group' });
+      store.undo();
+
+      expect(group.name).toBe('Group');
+      expect(group.children[0]).toBe(child);
+    });
+  });
 });
 

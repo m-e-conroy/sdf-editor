@@ -4,7 +4,9 @@ import {
   CSGCompiler,
   OPCODE_PUSH_LEAF,
   OPCODE_COMBINE,
-  OPCODE_POST_MOD
+  OPCODE_POST_MOD,
+  OPCODE_GROUP_SKIP,
+  MAX_INSTRUCTIONS
 } from '../engine/csg/CSGCompiler';
 import { SdfEvaluator } from '../engine/cpu/SdfEvaluator';
 
@@ -157,5 +159,74 @@ describe('CSGCompiler', () => {
     // difference: max(-0.25, -0.25) = -0.25 (inside)
     const distInWall = SdfEvaluator.evalCompiledScene([0.75, 0, 0], compiled);
     expect(distInWall).toBeCloseTo(-0.25, 4);
+  });
+
+  describe('GROUP_SKIP hints', () => {
+    const buildNested = () => {
+      const tree = new CSGTree();
+      tree.root.children = [];
+      const g1 = CSGTree.createGroupNode('G1');
+      g1.modifiers = { roundRadius: 0.05 };
+      g1.children.push(CSGTree.createDefaultNode('box'), CSGTree.createDefaultNode('sphere'));
+      const g2 = CSGTree.createGroupNode('G2');
+      g2.children.push(CSGTree.createDefaultNode('torus'));
+      tree.root.children.push(g1, g2);
+      return { tree, g1, g2 };
+    };
+
+    it('is opt-in and leaves the default instruction stream unchanged', () => {
+      const { tree } = buildNested();
+      const compiled = CSGCompiler.compile(tree);
+      expect(compiled.instructions.some((i) => i.opcode === OPCODE_GROUP_SKIP)).toBe(false);
+      expect(compiled.groupSkips).toEqual([]);
+    });
+
+    it('wraps multi-leaf groups and skips exactly their bodies (incl. post-mods)', () => {
+      const { tree, g1 } = buildNested();
+      const compiled = CSGCompiler.compile(tree, { groupSkips: true });
+      const ops = compiled.instructions.map((i) => i.opcode);
+
+      // root(3 leaves) and G1(2 leaves) get hints; single-leaf G2 relies on leaf culling
+      expect(compiled.groupSkips.map((s) => s.node.name)).toEqual(['Root Group', 'G1']);
+      expect(ops).toEqual([
+        OPCODE_GROUP_SKIP, // root
+        OPCODE_GROUP_SKIP, // G1
+        OPCODE_PUSH_LEAF,
+        OPCODE_PUSH_LEAF,
+        OPCODE_COMBINE,
+        OPCODE_POST_MOD,
+        OPCODE_PUSH_LEAF, // G2 torus
+        OPCODE_COMBINE
+      ]);
+      expect(compiled.instructions[0]).toMatchObject({ arg0: 0, arg1: 7 });
+      expect(compiled.instructions[1]).toMatchObject({ arg0: 1, arg1: 4 });
+      expect(compiled.groupSkips[1].leafRange).toEqual(compiled.nodeLeafRanges.get(g1.id));
+    });
+
+    it('does not change CPU evaluation results', () => {
+      const { tree } = buildNested();
+      const plain = CSGCompiler.compile(tree);
+      const hinted = CSGCompiler.compile(tree, { groupSkips: true });
+      for (const p of [[0, 0, 0], [1.2, 0.3, -0.4], [3, 3, 3]] as [number, number, number][]) {
+        expect(SdfEvaluator.evalCompiledScene(p, hinted)).toBeCloseTo(SdfEvaluator.evalCompiledScene(p, plain), 6);
+      }
+    });
+
+    it('never pushes the stream past MAX_INSTRUCTIONS', () => {
+      const tree = new CSGTree();
+      tree.root.children = [];
+      for (let g = 0; g < 10; g++) {
+        const grp = CSGTree.createGroupNode(`G${g}`);
+        grp.children.push(CSGTree.createDefaultNode('sphere'), CSGTree.createDefaultNode('box'), CSGTree.createDefaultNode('torus'));
+        tree.root.children.push(grp);
+      }
+      const base = CSGCompiler.compile(tree).instructions.length;
+      const hinted = CSGCompiler.compile(tree, { groupSkips: true });
+
+      expect(hinted.instructions.length).toBeLessThanOrEqual(MAX_INSTRUCTIONS);
+      expect(hinted.groupSkips.length).toBe(MAX_INSTRUCTIONS - base);
+      // Largest group (root, 30 leaves) is always prioritized
+      expect(hinted.groupSkips[0].node).toBe(tree.root);
+    });
   });
 });

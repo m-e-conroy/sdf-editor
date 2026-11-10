@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
-import { UniformPacker, MAX_GPU_NODES } from './UniformPacker';
+import { UniformPacker, MAX_GPU_NODES, BASE_CULL_MARGIN } from './UniformPacker';
 import { CSGTree } from '../tree/CSGTree';
-import type { PrimitiveType, SDFNode } from '../tree/types';
+import { SdfEvaluator } from './cpu/SdfEvaluator';
+import type { ModifierConfig, PrimitiveType, SDFNode } from '../tree/types';
 
 describe('UniformPacker', () => {
   let tree: CSGTree;
@@ -398,6 +399,116 @@ describe('UniformPacker', () => {
       expect(packed.dimensions[0].x).toBeCloseTo(0.8);
       expect(packed.dimensions[0].y).toBeCloseTo(0.38);
       expect(packed.dimensions[0].z).toBeCloseTo(0.25);
+    });
+  });
+
+  describe('Shader Culling Bounds', () => {
+    // Points on a sphere just outside the packed bound must never be inside the shape
+    const expectBoundEnclosesNode = (node: SDFNode) => {
+      tree.root.children = [node];
+      const radius = UniformPacker.pack(tree).dimensions[0].w;
+      const identity = new THREE.Matrix4();
+      const golden = Math.PI * (3 - Math.sqrt(5));
+      const samples = 400;
+      for (let i = 0; i < samples; i++) {
+        const y = 1 - (2 * (i + 0.5)) / samples;
+        const ring = Math.sqrt(1 - y * y);
+        const p: [number, number, number] = [
+          Math.cos(golden * i) * ring * (radius + 0.01),
+          y * (radius + 0.01),
+          Math.sin(golden * i) * ring * (radius + 0.01)
+        ];
+        expect(SdfEvaluator.evalNodeDistance(p, node, identity)).toBeGreaterThan(0);
+      }
+    };
+
+    // Types whose CPU evaluator reads the same dimensions the shader receives
+    const types: PrimitiveType[] = ['sphere', 'box', 'cylinder', 'torus', 'capsule', 'pipe', 'hemisphere', 'ellipsoid', 'octahedron'];
+    types.forEach((type) => {
+      it(`should enclose a default ${type}`, () => {
+        expectBoundEnclosesNode(CSGTree.createDefaultNode(type));
+      });
+    });
+
+    const modifierCases: Record<string, ModifierConfig> = {
+      twist: { twistFactor: 2.5 },
+      bend: { bendFactor: 1.2 },
+      mirror: { mirrorAxes: [true, true, false] },
+      radialRepeat: { radialRepeat: 5 },
+      linearRepeat: { linearCount: 4, linearSpacing: 0.9 },
+      round: { roundRadius: 0.1 },
+      shell: { shellThickness: 0.06 }
+    };
+    Object.entries(modifierCases).forEach(([name, modifiers]) => {
+      it(`should enclose a box with ${name} modifier`, () => {
+        const node = CSGTree.createDefaultNode('box');
+        node.primitive!.dimensions.size = [0.5, 0.3, 0.2];
+        node.modifiers = modifiers;
+        expectBoundEnclosesNode(node);
+      });
+    });
+
+    it('should leave padding slots with a zero bound', () => {
+      tree.root.children = [CSGTree.createDefaultNode('sphere')];
+      expect(UniformPacker.pack(tree).dimensions[1].w).toBe(0);
+    });
+
+    it('should use the base cull margin for hard-edged scenes', () => {
+      tree.root.children = [CSGTree.createDefaultNode('box'), CSGTree.createDefaultNode('sphere')];
+      expect(UniformPacker.pack(tree).cullMargin).toBeCloseTo(BASE_CULL_MARGIN);
+    });
+
+    it('should widen the cull margin along the deepest chain of blends, rounding and shells', () => {
+      const inner = CSGTree.createGroupNode('Inner');
+      inner.modifiers = { roundRadius: 0.05, shellThickness: 0.02 };
+      const a = CSGTree.createDefaultNode('box');
+      const b = CSGTree.createDefaultNode('sphere');
+      b.csg.blendMode = 'smooth_polynomial';
+      b.csg.blendRadius = 0.2;
+      inner.children = [a, b];
+
+      const sibling = CSGTree.createDefaultNode('torus');
+      sibling.csg.blendMode = 'smooth_polynomial';
+      sibling.csg.blendRadius = 0.1;
+      tree.root.children = [inner, sibling];
+
+      // root level: 1.5 * 0.1, inner level: 1.5 * 0.2 + 0.05 + 0.02
+      expect(UniformPacker.pack(tree).cullMargin).toBeCloseTo(BASE_CULL_MARGIN + 0.15 + 0.37);
+    });
+
+    it('should enclose every member leaf in its group bound', () => {
+      const group = CSGTree.createGroupNode('Arm');
+      group.transform.position = [1, 2, 0];
+      group.transform.rotation = [0.4, 0.9, 0];
+      group.transform.scale = [1, 2.5, 0.5];
+      group.modifiers = { roundRadius: 0.04 };
+      const a = CSGTree.createDefaultNode('box');
+      a.transform.position = [0.6, 0, 0];
+      a.transform.rotation = [0, 0, 0.7];
+      const b = CSGTree.createDefaultNode('capsule');
+      b.transform.position = [-0.5, 0.3, 0.2];
+      group.children.push(a, b);
+      tree.root.children = [group];
+
+      const packed = UniformPacker.pack(tree);
+      const leaves = new CSGTree(tree.root).flattenWithTransforms();
+      const groupSlot = packed.instructions.slice(0, packed.instructionCount).filter((i) => i.x === 3).length - 1;
+      const bound = packed.groupBounds[groupSlot];
+
+      // Sample each leaf's bounding sphere surface in local space and map it to world space
+      leaves.forEach((leaf, i) => {
+        const r = packed.dimensions[i].w;
+        for (const dir of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1], [0.577, 0.577, 0.577]]) {
+          const world = new THREE.Vector3(dir[0] * r, dir[1] * r, dir[2] * r).applyMatrix4(leaf.worldMatrix);
+          expect(world.distanceTo(new THREE.Vector3(bound.x, bound.y, bound.z))).toBeLessThanOrEqual(bound.w);
+        }
+      });
+    });
+
+    it('should keep unused group slots from ever skipping', () => {
+      tree.root.children = [CSGTree.createDefaultNode('sphere')];
+      const packed = UniformPacker.pack(tree);
+      expect(packed.groupBounds.every((b) => b.w >= 1e9)).toBe(true);
     });
   });
 });

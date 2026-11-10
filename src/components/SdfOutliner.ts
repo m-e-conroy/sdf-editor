@@ -4,6 +4,7 @@
 
 import { SceneStore } from '../store/SceneStore';
 import { SDFNode, PrimitiveType, CSGOpType } from '../tree/types';
+import { escapeHtml } from '../utils/escapeHtml';
 
 export class SdfOutliner extends HTMLElement {
   private sceneStore = SceneStore.getInstance();
@@ -278,14 +279,14 @@ export class SdfOutliner extends HTMLElement {
 
       const glyph = isGroup ? '📁' : this.getPrimitiveGlyph(node.primitive?.type ?? 'sphere');
       const chevronHtml = isGroup
-        ? `<button class="btn-chevron" data-group-id="${node.id}">${isCollapsed ? '▶' : '▼'}</button>`
+        ? `<button class="btn-chevron" data-group-id="${escapeHtml(node.id)}">${isCollapsed ? '▶' : '▼'}</button>`
         : `<span style="width: 14px;"></span>`;
       const countBadge = isGroup ? `<span class="badge-count">${node.children.length}</span>` : '';
 
       row.innerHTML = `
         ${chevronHtml}
         <span class="node-icon">${glyph}</span>
-        <span class="node-name" title="Double click to rename: ${node.name}">${node.name}</span>
+        <span class="node-name" title="Double click to rename: ${escapeHtml(node.name)}">${escapeHtml(node.name)}</span>
         ${countBadge}
         ${!isRoot ? `<span class="badge-csg ${badgeClass}" title="CSG Mode (Click to cycle)">${badgeSymbol}</span>` : ''}
         ${!isRoot ? `<button class="btn-order btn-order-up" title="Move Up">↑</button>` : ''}

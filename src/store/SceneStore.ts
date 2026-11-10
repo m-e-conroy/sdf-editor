@@ -11,6 +11,8 @@ export interface Command {
   name: string;
   execute(): void;
   undo(): void;
+  /** Absorbs an immediately following command so repeated edits collapse into one; returns false to keep both. */
+  mergeWith?(next: Command): boolean;
 }
 
 export class CompositeCommand implements Command {
@@ -23,6 +25,8 @@ export class CompositeCommand implements Command {
   }
 
   public add(command: Command): void {
+    const last = this.commands[this.commands.length - 1];
+    if (last?.mergeWith?.(command)) return;
     this.commands.push(command);
   }
 
@@ -37,6 +41,29 @@ export class CompositeCommand implements Command {
     for (let i = this.commands.length - 1; i >= 0; i--) {
       this.commands[i].undo();
     }
+  }
+}
+
+class UpdateNodeCommand implements Command {
+  constructor(
+    public name: string,
+    private node: SDFNode,
+    private prev: Partial<SDFNode>,
+    private next: Partial<SDFNode>
+  ) {}
+
+  public execute(): void {
+    Object.assign(this.node, this.next);
+  }
+
+  public undo(): void {
+    Object.assign(this.node, this.prev);
+  }
+
+  public mergeWith(command: Command): boolean {
+    if (!(command instanceof UpdateNodeCommand) || command.node !== this.node) return false;
+    this.next = { ...this.next, ...command.next };
+    return true;
   }
 }
 
@@ -55,6 +82,9 @@ export class SceneStore extends EventTarget {
 
   // Active transaction container
   private currentTransaction: CompositeCommand | null = null;
+
+  // Open pointer gesture (gizmo drag, slider scrub) collecting edits into one undo step
+  private activeGesture: CompositeCommand | null = null;
 
   private constructor() {
     super();
@@ -83,6 +113,10 @@ export class SceneStore extends EventTarget {
       return;
     }
 
+    // Keep external batches (e.g. agent recipes) out of the user's in-progress gesture
+    const interruptedGesture = this.activeGesture?.name ?? null;
+    if (interruptedGesture !== null) this.endGesture();
+
     const composite = new CompositeCommand(name);
     this.currentTransaction = composite;
     try {
@@ -92,15 +126,44 @@ export class SceneStore extends EventTarget {
     }
 
     if (composite.commands.length > 0) {
-      this.undoStack.push(composite);
-      if (this.undoStack.length > this.maxHistory) {
-        this.undoStack.shift();
-      }
-      this.redoStack = []; // Clear redo on new action
+      this.pushHistory(composite);
       this.revision++;
       this.notifySceneChanged();
-      this.notifyHistoryChanged();
     }
+
+    if (interruptedGesture !== null) this.beginGesture(interruptedGesture);
+  }
+
+  /**
+   * Starts a continuous edit (gizmo drag, slider scrub). Every mutation until endGesture()
+   * still applies and notifies immediately, but they are recorded as a single undo step.
+   */
+  public beginGesture(name: string): void {
+    if (this.activeGesture) this.endGesture();
+    this.activeGesture = new CompositeCommand(name);
+  }
+
+  public endGesture(): void {
+    const gesture = this.activeGesture;
+    if (!gesture) return;
+    this.activeGesture = null;
+    if (gesture.commands.length > 0) {
+      this.pushHistory(gesture);
+      this.saveToLocalStorage();
+    }
+  }
+
+  public isGestureActive(): boolean {
+    return this.activeGesture !== null;
+  }
+
+  private pushHistory(command: Command): void {
+    this.undoStack.push(command);
+    if (this.undoStack.length > this.maxHistory) {
+      this.undoStack.shift();
+    }
+    this.redoStack = []; // Clear redo on new action
+    this.notifyHistoryChanged();
   }
 
   public execute(command: Command): void {
@@ -112,17 +175,17 @@ export class SceneStore extends EventTarget {
     }
 
     command.execute();
-    this.undoStack.push(command);
-    if (this.undoStack.length > this.maxHistory) {
-      this.undoStack.shift();
+    if (this.activeGesture) {
+      this.activeGesture.add(command);
+    } else {
+      this.pushHistory(command);
     }
-    this.redoStack = []; // Clear redo on new action
     this.revision++;
     this.notifySceneChanged();
-    this.notifyHistoryChanged();
   }
 
   public undo(): boolean {
+    this.endGesture();
     const command = this.undoStack.pop();
     if (!command) return false;
     command.undo();
@@ -134,6 +197,7 @@ export class SceneStore extends EventTarget {
   }
 
   public redo(): boolean {
+    this.endGesture();
     const command = this.redoStack.pop();
     if (!command) return false;
     command.execute();
@@ -238,18 +302,13 @@ export class SceneStore extends EventTarget {
     const node = this.tree.findNode(id);
     if (!node) return;
 
-    const prevSnapshot = JSON.parse(JSON.stringify(node));
-    const newSnapshot = { ...prevSnapshot, ...updates };
+    // Snapshots exclude children so undo never swaps live child objects for stale copies
+    const { children: _children, ...current } = node;
+    const { children: _ignored, ...changes } = updates;
+    const prevSnapshot: Partial<SDFNode> = JSON.parse(JSON.stringify(current));
+    const newSnapshot: Partial<SDFNode> = { ...prevSnapshot, ...changes };
 
-    this.execute({
-      name: `Update ${node.name}`,
-      execute: () => {
-        Object.assign(node, newSnapshot);
-      },
-      undo: () => {
-        Object.assign(node, prevSnapshot);
-      }
-    });
+    this.execute(new UpdateNodeCommand(`Update ${node.name}`, node, prevSnapshot, newSnapshot));
   }
 
   public reparentNode(nodeId: string, newParentId: string, targetIndex?: number): void {
@@ -464,7 +523,8 @@ export class SceneStore extends EventTarget {
         detail: { tree: this.tree, revision: this.revision }
       })
     );
-    this.saveToLocalStorage();
+    // Persisting the whole scene on every pointer tick is wasted work; endGesture() saves once
+    if (!this.activeGesture) this.saveToLocalStorage();
   }
 
   private notifyHistoryChanged(): void {
@@ -507,6 +567,7 @@ export class SceneStore extends EventTarget {
   public loadFromJSON(doc: SDFSceneDocument): void {
     if (doc && doc.rootNode) {
       this.tree.fromJSON(doc);
+      this.activeGesture = null;
       this.undoStack = [];
       this.redoStack = [];
       this.revision++;

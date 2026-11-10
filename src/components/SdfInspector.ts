@@ -4,6 +4,11 @@
 
 import { SceneStore } from '../store/SceneStore';
 import { CSGOpType, BlendMode } from '../tree/types';
+import { escapeHtml } from '../utils/escapeHtml';
+
+// Scene data can come from imported files or agents, so only finite numbers reach the HTML
+const num = (value: unknown, fallback: number): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
 export class SdfInspector extends HTMLElement {
   private sceneStore = SceneStore.getInstance();
@@ -11,9 +16,30 @@ export class SdfInspector extends HTMLElement {
   private onSceneChangedBound: () => void = () => {};
   private onGizmoModeChangedBound: (e: Event) => void = () => {};
   private activeGizmoMode: 'translate' | 'rotate' | 'scale' = 'translate';
+  private sliderGestureOpen = false;
+
+  // Range and color inputs fire 'input' on every pointer move; one drag becomes one undo step
+  private readonly onControlInput = (e: Event): void => {
+    const target = e.target;
+    if (this.sliderGestureOpen || !(target instanceof HTMLInputElement)) return;
+    if (target.type !== 'range' && target.type !== 'color') return;
+    this.sliderGestureOpen = true;
+    this.sceneStore.beginGesture(`Adjust ${this.sceneStore.getSelectedNode()?.name ?? 'Object'}`);
+  };
+
+  private readonly endSliderGesture = (): void => {
+    if (!this.sliderGestureOpen) return;
+    this.sliderGestureOpen = false;
+    this.sceneStore.endGesture();
+  };
 
   connectedCallback() {
     this.render();
+
+    this.addEventListener('input', this.onControlInput, true);
+    this.addEventListener('change', this.endSliderGesture, true);
+    this.addEventListener('focusout', this.endSliderGesture, true);
+    window.addEventListener('pointerup', this.endSliderGesture);
 
     this.onSelectionChangedBound = () => this.render();
     this.onSceneChangedBound = () => this.syncValues();
@@ -32,6 +58,11 @@ export class SdfInspector extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.endSliderGesture();
+    this.removeEventListener('input', this.onControlInput, true);
+    this.removeEventListener('change', this.endSliderGesture, true);
+    this.removeEventListener('focusout', this.endSliderGesture, true);
+    window.removeEventListener('pointerup', this.endSliderGesture);
     this.sceneStore.removeEventListener('selection-changed', this.onSelectionChangedBound);
     this.sceneStore.removeEventListener('scene-changed', this.onSceneChangedBound);
     window.removeEventListener('gizmo-mode-changed', this.onGizmoModeChangedBound);
@@ -55,9 +86,9 @@ export class SdfInspector extends HTMLElement {
     const isRoot = node.id === this.sceneStore.tree.root.id;
 
     // Modifiers state defaults
-    const shellThick = node.modifiers?.shellThickness ?? 0.0;
-    const twistVal = node.modifiers?.twistFactor ?? (node.modifiers as any)?.twist ?? 0.0;
-    const bendVal = node.modifiers?.bendFactor ?? 0.0;
+    const shellThick = num(node.modifiers?.shellThickness, 0.0);
+    const twistVal = num(node.modifiers?.twistFactor ?? (node.modifiers as any)?.twist, 0.0);
+    const bendVal = num(node.modifiers?.bendFactor, 0.0);
     const mirrorAxes = node.modifiers?.mirrorAxes ?? [
       node.modifiers?.mirrorAxis === 'x',
       node.modifiers?.mirrorAxis === 'y',
@@ -66,11 +97,14 @@ export class SdfInspector extends HTMLElement {
     const symX = mirrorAxes[0];
     const symY = mirrorAxes[1];
     const symZ = mirrorAxes[2];
-    const radialVal = node.modifiers?.radialRepeat ?? 1;
-    const linearCountVal = node.modifiers?.linearCount ?? 1;
-    const linearSpacingVal = node.modifiers?.linearSpacing ?? 1.0;
-    const roundRadius = node.modifiers?.roundRadius ?? 0.0;
-    const metalnessVal = node.material.metalness ?? 0.0;
+    const radialVal = num(node.modifiers?.radialRepeat, 1);
+    const linearCountVal = num(node.modifiers?.linearCount, 1);
+    const linearSpacingVal = num(node.modifiers?.linearSpacing, 1.0);
+    const roundRadius = num(node.modifiers?.roundRadius, 0.0);
+    const metalnessVal = num(node.material.metalness, 0.0);
+    const roughnessVal = num(node.material.roughness, 0.35);
+    const blendRadiusVal = num(node.csg.blendRadius, 0);
+    const colorVal = escapeHtml(node.material.color || '#e2e8f0');
 
     this.innerHTML = `
       <style>
@@ -253,12 +287,12 @@ export class SdfInspector extends HTMLElement {
           <div class="section-header">Node Identity</div>
           <div class="field-row">
             <span class="field-label">Name:</span>
-            <input type="text" id="prop-name" class="text-input" value="${node.name}" />
+            <input type="text" id="prop-name" class="text-input" value="${escapeHtml(node.name)}" />
           </div>
           <div class="field-row">
             <span class="field-label">Type:</span>
             <span style="font-weight: 600; color: var(--accent-primary); font-size: 11px;">
-              ${node.kind === 'group' ? 'CSG GROUP' : (node.primitive?.type.toUpperCase() ?? 'PRIMITIVE')}
+              ${node.kind === 'group' ? 'CSG GROUP' : escapeHtml(node.primitive?.type.toUpperCase() ?? 'PRIMITIVE')}
             </span>
           </div>
           ${node.kind === 'group' ? `
@@ -368,8 +402,8 @@ export class SdfInspector extends HTMLElement {
           <div class="field-row">
             <span class="field-label">Smooth (k):</span>
             <div class="slider-row">
-              <input type="range" id="prop-csg-k" class="range-slider" min="0" max="0.5" step="0.01" value="${node.csg.blendRadius || 0}" />
-              <span id="label-csg-k" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(node.csg.blendRadius || 0).toFixed(2)}</span>
+              <input type="range" id="prop-csg-k" class="range-slider" min="0" max="0.5" step="0.01" value="${blendRadiusVal}" />
+              <span id="label-csg-k" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${blendRadiusVal.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -460,15 +494,15 @@ export class SdfInspector extends HTMLElement {
           <div class="field-row">
             <span class="field-label">Color:</span>
             <div class="color-row">
-              <input type="color" id="prop-color" class="color-picker" value="${node.material.color || '#e2e8f0'}" />
-              <span class="tabular-nums font-mono" style="font-size: 11px;">${node.material.color}</span>
+              <input type="color" id="prop-color" class="color-picker" value="${colorVal}" />
+              <span class="tabular-nums font-mono" style="font-size: 11px;">${colorVal}</span>
             </div>
           </div>
           <div class="field-row">
             <span class="field-label">Roughness:</span>
             <div class="slider-row">
-              <input type="range" id="prop-roughness" class="range-slider" min="0" max="1" step="0.02" value="${node.material.roughness ?? 0.35}" />
-              <span id="label-roughness" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${(node.material.roughness ?? 0.35).toFixed(2)}</span>
+              <input type="range" id="prop-roughness" class="range-slider" min="0" max="1" step="0.02" value="${roughnessVal}" />
+              <span id="label-roughness" class="tabular-nums" style="width: 36px; text-align: right; font-size: 11px;">${roughnessVal.toFixed(2)}</span>
             </div>
           </div>
           <div class="field-row">
@@ -487,7 +521,13 @@ export class SdfInspector extends HTMLElement {
 
   private renderDimensionFields(node: any): string {
     if (!node.primitive) return '';
-    const dims = node.primitive.dimensions || {};
+    // Keep only finite numbers / numeric arrays so missing or malformed values fall back to defaults
+    const dims: Record<string, any> = {};
+    for (const [key, value] of Object.entries(node.primitive.dimensions || {})) {
+      if (typeof value === 'number' ? Number.isFinite(value) : Array.isArray(value) && value.every((v) => Number.isFinite(v))) {
+        dims[key] = value;
+      }
+    }
     const type = node.primitive.type;
 
     if (type === 'sphere') {
